@@ -13,6 +13,7 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   
   <style>
     body {
@@ -505,6 +506,11 @@
       
       <button type="submit" class="btn-primary w-full py-3 rounded-lg flex items-center justify-center">
         <i class="fas fa-sign-in-alt mr-2"></i>Entrar al sistema
+      </button>
+
+      <!-- Botón de inicio de sesión con Google -->
+      <button type="button" id="google-login" class="btn-danger w-full py-3 rounded-lg flex items-center justify-center mt-4">
+        <i class="fab fa-google mr-2"></i>Entrar con Google
       </button>
     </form>
     
@@ -1077,6 +1083,7 @@
     // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
 
     // Variables y DOM
     const users = { 
@@ -1242,6 +1249,7 @@
     const adminExportAllInOne = document.getElementById('admin-export-all-in-one');
     const analyticsStoreFilterContainer = document.getElementById('analytics-store-filter-container');
     const analyticsStoreFilter = document.getElementById('analytics-store-filter');
+    const googleLoginBtn = document.getElementById('google-login'); // Nuevo
     
     // Nuevas referencias para la nueva estructura
     const manualTimeInput = document.getElementById('manual-time');
@@ -1852,15 +1860,15 @@
       lastSaleContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
           <div>
-            <div class="font-semibold text-gray-700">Fecha:</div>
+            <div class="font-semibold">Fecha:</div>
             <div>${formattedDate}</div>
           </div>
           <div>
-            <div class="font-semibold text-gray-700">Tienda:</div>
+            <div class="font-semibold">Tienda:</div>
             <div>${lastSale.store}</div>
           </div>
           <div>
-            <div class="font-semibold text-gray-700">Método de pago:</div>
+            <div class="font-semibold">Método de pago:</div>
             <div>${lastSale.payment} (${lastSale.type === 'normal' ? 'Normal' : (lastSale.type === 'p' ? '(P)' : '(V)')})</div>
           </div>
         </div>
@@ -2644,6 +2652,30 @@
       showToast('Exportación completada', 'success');
     }
     
+    // Función para inicio de sesión con Google
+    function signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then((result) => {
+          const user = result.user;
+          if (users[user.email]) {
+            // Llenar el campo de usuario
+            usernameInput.value = user.email;
+            passwordInput.value = ''; 
+            passwordInput.disabled = true;
+            errorMessage.classList.add('hidden');
+            showToast('Autenticación con Google exitosa. Seleccione tienda y pulse "Entrar al sistema"', 'success');
+          } else {
+            showToast('Usuario no registrado en el sistema', 'error');
+            auth.signOut();
+          }
+        })
+        .catch((error) => {
+          console.error("Error en autenticación con Google:", error);
+          showToast('Error al iniciar sesión con Google', 'error');
+        });
+    }
+    
     // Inicializar
     document.addEventListener('DOMContentLoaded', () => {
       // Cargar sesiones activas
@@ -2656,62 +2688,127 @@
       adminStartDate.value = today;
       adminEndDate.value = today;
 
-      // Intentar cargar sesión al iniciar
-      if (loadSession()) {
-        showMainContent();
-      } else {
-        loginScreen.classList.remove('hidden');
-      }
+      // Observador de estado de autenticación
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          const savedUser = localStorage.getItem('currentUser');
+          const savedStore = localStorage.getItem('currentStore');
+          
+          if (savedUser === user.email && savedStore) {
+            if (users[savedUser]) {
+              currentUserData = savedUser;
+              currentStore = savedStore;
+              isMasterUser = savedUser === 'admin@accesorios.com';
+              showMainContent();
+              return;
+            }
+          }
+          // Si no se cumple lo anterior, mostramos el login con el usuario prellenado
+          usernameInput.value = user.email;
+          passwordInput.value = '';
+          loginScreen.classList.remove('hidden');
+        } else {
+          clearSession();
+          loginScreen.classList.remove('hidden');
+        }
+      });
 
       // Login
-      loginForm.addEventListener('submit', (e) => {
+      loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
         const store = storeSelect.value;
         
-        if (!username || !password || !store) {
-          errorMessage.textContent = 'Usuario, contraseńa y tienda requeridos';
+        if (!username || !store) {
+          errorMessage.textContent = 'Usuario y tienda requeridos';
           errorMessage.classList.remove('hidden');
           return;
         }
-        
-        const user = users[username];
-        if (user && user.password === password) {
-          // Verificar si el usuario tiene acceso a la tienda
-          if (username !== 'admin@accesorios.com' && !user.stores.includes(store)) {
-            errorMessage.textContent = 'No tiene acceso a esta tienda';
-            errorMessage.classList.remove('hidden');
-            return;
-          }
-          
-          // Verificar límite de sesiones por tienda (solo si no es admin)
-          if (username !== 'admin@accesorios.com') {
-            if (activeSessions[store] && activeSessions[store].length >= 2) {
-              errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
+
+        // Si el campo de contraseña está deshabilitado, es porque ya se autenticó con Google
+        if (passwordInput.disabled) {
+          // Solo validamos el usuario y la tienda
+          const user = users[username];
+          if (user) {
+            if (username !== 'admin@accesorios.com' && !user.stores.includes(store)) {
+              errorMessage.textContent = 'No tiene acceso a esta tienda';
               errorMessage.classList.remove('hidden');
               return;
             }
+            
+            // Verificar límite de sesiones por tienda (solo si no es admin)
+            if (username !== 'admin@accesorios.com') {
+              if (activeSessions[store] && activeSessions[store].length >= 2) {
+                errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
+                errorMessage.classList.remove('hidden');
+                return;
+              }
+            }
+            
+            currentUserData = username;
+            currentStore = store;
+            isMasterUser = username === 'admin@accesorios.com';
+            saveSession(username, store);
+            showMainContent();
+          } else {
+            errorMessage.textContent = 'Usuario no registrado';
+            errorMessage.classList.remove('hidden');
           }
-          
-          currentUserData = username;
-          currentStore = store;
-          isMasterUser = username === 'admin@accesorios.com';
-          saveSession(username, store);
-          showMainContent();
         } else {
-          errorMessage.textContent = 'Credenciales incorrectas';
-          errorMessage.classList.remove('hidden');
+          // Inicio de sesión con correo y contraseña
+          try {
+            const userCredential = await auth.signInWithEmailAndPassword(username, password);
+            const user = userCredential.user;
+            
+            if (users[user.email]) {
+              // Validar tienda
+              const userData = users[user.email];
+              if (username !== 'admin@accesorios.com' && !userData.stores.includes(store)) {
+                errorMessage.textContent = 'No tiene acceso a esta tienda';
+                errorMessage.classList.remove('hidden');
+                return;
+              }
+
+              // Verificar límite de sesiones
+              if (username !== 'admin@accesorios.com') {
+                if (activeSessions[store] && activeSessions[store].length >= 2) {
+                  errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
+                  errorMessage.classList.remove('hidden');
+                  return;
+                }
+              }
+
+              currentUserData = user.email;
+              currentStore = store;
+              isMasterUser = user.email === 'admin@accesorios.com';
+              saveSession(user.email, store);
+              showMainContent();
+            } else {
+              showToast('Usuario no registrado en el sistema', 'error');
+            }
+          } catch (error) {
+            console.error("Error en inicio de sesión:", error);
+            errorMessage.textContent = 'Credenciales incorrectas';
+            errorMessage.classList.remove('hidden');
+          }
         }
       });
 
       // Logout
       logoutBtn.addEventListener('click', () => {
-        clearSession();
-        mainContent.classList.add('hidden');
-        loginScreen.classList.remove('hidden');
-        showToast('Sesión cerrada', 'success');
+        auth.signOut().then(() => {
+          clearSession();
+          mainContent.classList.add('hidden');
+          loginScreen.classList.remove('hidden');
+          showToast('Sesión cerrada', 'success');
+        });
       });
+
+      // Botón de Google
+      googleLoginBtn.addEventListener('click', signInWithGoogle);
+
+      // ... (resto del código de inicialización) ...
 
       // Agregar categorías
       addCategoryNormalBtn.addEventListener('click', addNormalCategory);
