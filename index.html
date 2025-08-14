@@ -1,0 +1,2893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de Ventas - Tiendas de Accesorios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  
+  <style>
+    body {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+    }
+    
+    #toast {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 350px;
+      display: flex;
+      align-items: center;
+    }
+    
+    #toast.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .toast-success {
+      background: rgba(16, 185, 129, 0.9) !important;
+    }
+    
+    .toast-error {
+      background: rgba(239, 68, 68, 0.9) !important;
+    }
+    
+    .toast-warning {
+      background: rgba(245, 158, 11, 0.9) !important;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    
+    .modal.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      transform: translateY(20px);
+      transition: transform 0.3s;
+      max-height: 90vh;
+      overflow: hidden;
+      width: 90%;
+      max-width: 800px;
+    }
+    
+    .modal.show .modal-content {
+      transform: translateY(0);
+    }
+    
+    .sale-item {
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .online-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+    
+    .online {
+      background-color: #10B981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+    }
+    
+    .offline {
+      background-color: #EF4444;
+    }
+    
+    .stats-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+    
+    .stats-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    
+    .user-location {
+      display: inline-block;
+      background-color: #e0f2fe;
+      color: #0c4a6e;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .edit-item-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .disconnect-user {
+      transition: all 0.2s;
+    }
+    .disconnect-user:hover {
+      transform: scale(1.05);
+      background-color: #ef4444 !important;
+    }
+    
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .export-btn {
+      background: linear-gradient(to right, #10b981, #3b82f6);
+      color: white;
+      padding: 0.5rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+    }
+    
+    .export-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .exporting-spinner {
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .stats-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-top: 0.5rem;
+    }
+    
+    .payment-method-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #e5e7eb;
+      transition: background-color 0.2s;
+    }
+    
+    .payment-method-item:hover {
+      background-color: #f9fafb;
+    }
+    
+    .payment-method-name {
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .payment-method-count {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .payment-method-percent {
+      background-color: #dbeafe;
+      color: #3b82f6;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    
+    .payment-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    
+    .payment-movil-icon {
+      background-color: #dbeafe;
+      color: #3b82f6;
+    }
+    
+    .payment-enlinea-icon {
+      background-color: #ede9fe;
+      color: #8b5cf6;
+    }
+    
+    .payment-tarjeta-icon {
+      background-color: #f0fdf4;
+      color: #10b981;
+    }
+    
+    .payment-efectivo-icon {
+      background-color: #fffbeb;
+      color: #f59e0b;
+    }
+    
+    .payment-dividido-icon {
+      background-color: #fce7f3;
+      color: #ec4899;
+    }
+    
+    .header-gradient {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+      color: white;
+    }
+    
+    .btn-warning {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      color: white;
+    }
+    
+    .btn-purple {
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      color: white;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    
+    .card-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    /* Estilos para el diseño de tres columnas */
+    .dual-column-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr); /* Cambiado a tres columnas */
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .category-column {
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      background-color: #ffffff;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      /* Ajustes para evitar desbordamiento */
+      min-width: 0;
+      overflow: hidden;
+    }
+    
+    .category-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .category-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+    }
+    
+    .category-title i {
+      margin-right: 0.5rem;
+      color: #4a5568;
+    }
+    
+    .category-select-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .quantity-btn {
+      background-color: #e2e8f0;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 0.375rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .quantity-btn:hover {
+      background-color: #cbd5e0;
+    }
+    
+    .quantity-input {
+      width: 50px;
+      text-align: center;
+      padding: 0.5rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 0.375rem;
+      font-weight: 500;
+    }
+    
+    .payment-row {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    .save-section-btn {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+    }
+    
+    .save-section-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    @media (max-width: 1024px) {
+      .dual-column-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Toast Notifications -->
+  <div id="toast">
+    <i class="fas fa-info-circle mr-2"></i>
+    <span id="toast-message">Mensaje de notificación</span>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="text-center mb-10">
+      <div class="flex justify-center mb-4">
+        <div class="bg-blue-100 p-6 rounded-full">
+          <i class="fas fa-store text-blue-600 text-5xl"></i>
+        </div>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Sistema de Gestión de Ventas</h1>
+      <p class="text-gray-600 mt-2">Control de ventas para tiendas de accesorios</p>
+    </div>
+    
+    <form id="login-form" class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+      <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Iniciar Sesión</h2>
+      
+      <div class="space-y-2">
+        <label class="block font-medium text-gray-700">Usuario (Correo)</label>
+        <div class="relative">
+          <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          <input type="email" id="username" placeholder="Ingrese su correo" required 
+                 class="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+      </div>
+      
+      <div class="space-y-2">
+        <label class="block font-medium text-gray-700">Contraseńa</label>
+        <div class="relative">
+          <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          <input type="password" id="password" placeholder="Ingrese su contraseńa" required 
+                 class="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+      </div>
+      
+      <div class="mb-2">
+        <label class="block font-medium text-gray-700 mb-3">Seleccione tienda:</label>
+        <select id="selected-store" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="" disabled selected>Seleccione una tienda</option>
+          <option value="506">506</option>
+          <option value="centro">Centro</option>
+          <option value="pavas">Pavas</option>
+          <option value="terramall">Terramall</option>
+          <option value="escazu">Escazú</option>
+          <option value="hot">Hot</option>
+          <option value="desamparados">Desamparados</option>
+          <option value="canonazo">Cańonazo</option>
+          <option value="sabanilla">Sabanilla</option>
+        </select>
+      </div>
+      
+      <p id="error-message" class="text-red-500 text-sm hidden py-2 text-center"></p>
+      
+      <button type="submit" class="btn-primary w-full py-3 rounded-lg flex items-center justify-center">
+        <i class="fas fa-sign-in-alt mr-2"></i>Entrar al sistema
+      </button>
+    </form>
+    
+    <div class="mt-8 text-center text-sm text-gray-600">
+      <p>Sistema de gestión de ventas v3.2</p>
+      <p class="mt-1">© 2023 Tiendas de Accesorios - Todos los derechos reservados</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="main-content" class="flex-1 p-4 max-w-7xl mx-auto w-full hidden">
+    <!-- Header -->
+    <header class="header-gradient rounded-xl shadow p-4 mb-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-white flex items-center">
+            <i class="fas fa-store mr-3 text-white"></i> 
+            Gestión de Ventas
+            <span id="current-store-badge" class="ml-3 bg-blue-200 text-blue-800 text-sm px-3 py-1 rounded-full"></span>
+          </h1>
+          <div id="user-locations" class="text-white text-opacity-90 mt-1 flex flex-wrap items-center">
+            <i class="fas fa-map-marker-alt mr-2"></i>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-3 mt-4 md:mt-0">
+          <div class="hidden md:block bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+            <i class="fas fa-user mr-1"></i>
+            <span id="current-user">admin</span>
+          </div>
+          
+          <button id="analytics-btn" class="btn-purple px-4 py-2 rounded-lg flex items-center">
+            <i class="fas fa-chart-line mr-2"></i>Analytics
+          </button>
+          
+          <button id="admin-panel-btn" class="btn-purple px-4 py-2 rounded-lg flex items-center">
+            <i class="fas fa-cog mr-2"></i>Panel Admin
+          </button>
+          
+          <button id="logout-btn" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center">
+            <i class="fas fa-sign-out-alt mr-2"></i>Salir
+          </button>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Form Section - CON GUARDADO INDEPENDIENTE -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <i class="fas fa-plus-circle mr-2 text-blue-500"></i> Registrar Nueva Venta
+      </div>
+      <div class="card-body">
+        <!-- Hora manual en la parte superior -->
+        <div class="mb-6">
+          <label class="block font-semibold text-gray-700 mb-2">Hora manual (opcional)</label>
+          <input type="time" id="manual-time" class="w-full md:w-1/3 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        
+        <!-- Contenedor de tres columnas para categorías -->
+        <div class="dual-column-container">
+          <!-- Columna para Categorías Normales -->
+          <div class="category-column">
+            <div class="category-header">
+              <h3 class="category-title">
+                <i class="fas fa-tag"></i> Categorías Normales
+              </h3>
+            </div>
+            
+            <!-- Fila para selección de categoría, cantidad y botón -->
+            <div class="category-select-row">
+              <select id="selected-category-normal" class="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="Articulos">Artículos</option>
+                <option value="Bisuteria">Bisutería</option>
+                <option value="Zapato">Zapato</option>
+                <option value="Prenda">Prenda</option>
+                <option value="B.Eco">B.Eco</option>
+              </select>
+              
+              <div class="quantity-control">
+                <button class="quantity-btn decrease-qty-normal">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" id="item-quantity-normal" min="1" value="1" class="quantity-input">
+                <button class="quantity-btn increase-qty-normal">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              
+              <button id="add-category-normal" class="btn-warning px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
+                <i class="fas fa-plus mr-2"></i> 
+              </button>
+            </div>
+            
+            <!-- Lista de artículos -->
+            <div class="mb-4">
+              <h4 class="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                <i class="fas fa-list mr-2 text-blue-400"></i> Artículos agregados
+              </h4>
+              <div id="current-sale-items-normal" class="border border-gray-200 rounded-lg">
+                <!-- Los artículos normales se mostrarán aquí -->
+              </div>
+            </div>
+            
+            <!-- Método de pago para esta categoría -->
+            <div class="payment-row">
+              <label class="block font-semibold text-gray-700 mb-2">Método de pago</label>
+              <select id="selected-payment-normal" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="" disabled selected>Seleccione método</option>
+                <option value="S.Movil">S.Móvil</option>
+                <option value="S.Enlinea">S.Enlínea</option>
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Cobro dividido">Cobro dividido</option>
+              </select>
+            </div>
+            
+            <!-- Botón de guardado independiente -->
+            <button id="save-sale-normal" class="save-section-btn btn-primary">
+              <i class="fas fa-save mr-2"></i> Guardar Venta Normal
+            </button>
+          </div>
+          
+          <!-- Columna para Categorías (P) -->
+          <div class="category-column">
+            <div class="category-header">
+              <h3 class="category-title">
+                <i class="fas fa-tag"></i> Categorías (P)
+              </h3>
+            </div>
+            
+            <!-- Fila para selección de categoría, cantidad y botón -->
+            <div class="category-select-row">
+              <select id="selected-category-p" class="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="Articulos (P)">Artículos (P)</option>
+                <option value="Bisuteria (P)">Bisutería (P)</option>
+                <option value="Zapato (P)">Zapato (P)</option>
+                <option value="Prenda (P)">Prenda (P)</option>
+              </select>
+              
+              <div class="quantity-control">
+                <button class="quantity-btn decrease-qty-p">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" id="item-quantity-p" min="1" value="1" class="quantity-input">
+                <button class="quantity-btn increase-qty-p">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              
+              <button id="add-category-p" class="btn-warning px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
+                <i class="fas fa-plus mr-2"></i> 
+              </button>
+            </div>
+            
+            <!-- Lista de artículos -->
+            <div class="mb-4">
+              <h4 class="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                <i class="fas fa-list mr-2 text-blue-400"></i> Artículos agregados
+              </h4>
+              <div id="current-sale-items-p" class="border border-gray-200 rounded-lg">
+                <!-- Los artículos (P) se mostrarán aquí -->
+              </div>
+            </div>
+            
+            <!-- Método de pago para esta categoría -->
+            <div class="payment-row">
+              <label class="block font-semibold text-gray-700 mb-2">Método de pago</label>
+              <select id="selected-payment-p" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="" disabled selected>Seleccione método</option>
+                <option value="S.Movil">S.Móvil</option>
+                <option value="S.Enlinea">S.Enlínea</option>
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Cobro dividido">Cobro dividido</option>
+              </select>
+            </div>
+            
+            <!-- Botón de guardado independiente -->
+            <button id="save-sale-p" class="save-section-btn btn-primary">
+              <i class="fas fa-save mr-2"></i> Guardar Venta (P)
+            </button>
+          </div>
+          
+          <!-- Columna para Categorías (V) -->
+          <div class="category-column">
+            <div class="category-header">
+              <h3 class="category-title">
+                <i class="fas fa-tag"></i> Categorías (V)
+              </h3>
+            </div>
+            
+            <!-- Fila para selección de categoría, cantidad y botón -->
+            <div class="category-select-row">
+              <select id="selected-category-v" class="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="Articulos (V)">Artículos (V)</option>
+                <option value="Bisuteria (V)">Bisutería (V)</option>
+                <option value="Zapato (V)">Zapato (V)</option>
+                <option value="Prenda (V)">Prenda (V)</option>
+              </select>
+              
+              <div class="quantity-control">
+                <button class="quantity-btn decrease-qty-v">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" id="item-quantity-v" min="1" value="1" class="quantity-input">
+                <button class="quantity-btn increase-qty-v">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              
+              <button id="add-category-v" class="btn-warning px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
+                <i class="fas fa-plus mr-2"></i> 
+              </button>
+            </div>
+            
+            <!-- Lista de artículos -->
+            <div class="mb-4">
+              <h4 class="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                <i class="fas fa-list mr-2 text-blue-400"></i> Artículos agregados
+              </h4>
+              <div id="current-sale-items-v" class="border border-gray-200 rounded-lg">
+                <!-- Los artículos (V) se mostrarán aquí -->
+              </div>
+            </div>
+            
+            <!-- Método de pago para esta categoría -->
+            <div class="payment-row">
+              <label class="block font-semibold text-gray-700 mb-2">Método de pago</label>
+              <select id="selected-payment-v" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="" disabled selected>Seleccione método</option>
+                <option value="S.Movil">S.Móvil</option>
+                <option value="S.Enlinea">S.Enlínea</option>
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Cobro dividido">Cobro dividido</option>
+              </select>
+            </div>
+            
+            <!-- Botón de guardado independiente -->
+            <button id="save-sale-v" class="save-section-btn btn-primary">
+              <i class="fas fa-save mr-2"></i> Guardar Venta (V)
+            </button>
+          </div>
+        </div>
+        
+        <!-- Botones de acción -->
+        <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200 mt-4">
+          <button id="export-excel" class="btn-success px-4 py-2 rounded-lg flex items-center">
+            <i class="fas fa-file-excel mr-2"></i> Exportar a Excel
+          </button>
+          <button id="clear-all" class="btn-danger px-4 py-2 rounded-lg flex items-center">
+            <i class="fas fa-trash mr-2"></i> Limpiar todo
+          </button>
+          <button id="view-sales" class="btn-purple px-4 py-2 rounded-lg flex items-center">
+            <i class="fas fa-eye mr-2"></i> Ver ventas
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recent Sales -->
+    <div class="card">
+      <div class="card-header">
+        <i class="fas fa-history mr-2 text-blue-500"></i> Última Venta
+      </div>
+      <div class="card-body">
+        <div id="last-sale-container" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <!-- La última venta se mostrará aquí -->
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="mt-8 py-6 text-center text-gray-600 text-sm">
+      <p>Sistema de Gestión de Ventas v3.2</p>
+      <p class="mt-1">© 2023 Tiendas de Accesorios. Todos los derechos reservados.</p>
+    </footer>
+  </div>
+
+  <!-- MODAL ANALYTICS -->
+  <div id="analytics-modal" class="modal">
+    <div class="modal-content">
+      <div class="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-chart-line mr-2 text-purple-500"></i> Estadísticas Detalladas
+        </h2>
+        <button id="close-analytics-modal" class="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 flex items-center">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
+      </div>
+      
+      <div class="p-6">
+        <!-- Filtro de tienda para admin -->
+        <div id="analytics-store-filter-container" class="mb-6 hidden">
+          <label class="block font-semibold text-gray-700 mb-2">Filtrar por tienda:</label>
+          <select id="analytics-store-filter" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="all">Todas</option>
+            <option value="506">506</option>
+            <option value="centro">Centro</option>
+            <option value="pavas">Pavas</option>
+            <option value="terramall">Terramall</option>
+            <option value="escazu">Escazú</option>
+            <option value="hot">Hot</option>
+            <option value="desamparados">Desamparados</option>
+            <option value="canonazo">Cańonazo</option>
+            <option value="sabanilla">Sabanilla</option>
+          </select>
+        </div>
+        
+        <div class="analytics-grid">
+          <div class="stats-card p-5">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700">Ventas Hoy</h3>
+                <p id="analytics-today-sales" class="stats-value">0</p>
+              </div>
+              <div class="bg-blue-100 p-3 rounded-full">
+                <i class="fas fa-shopping-bag text-blue-600 text-xl"></i>
+              </div>
+            </div>
+          </div>
+          
+          <div class="stats-card p-5">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700">Artículos Vendidos</h3>
+                <p id="analytics-today-items" class="stats-value">0</p>
+              </div>
+              <div class="bg-green-100 p-3 rounded-full">
+                <i class="fas fa-tags text-green-600 text-xl"></i>
+              </div>
+            </div>
+          </div>
+          
+          <div class="stats-card p-5">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700">Métodos de Pago</h3>
+                <p id="analytics-payment-methods" class="stats-value">0</p>
+              </div>
+              <div class="bg-purple-100 p-3 rounded-full">
+                <i class="fas fa-credit-card text-purple-600 text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="text-sm text-gray-600 mb-1">
+                Principal: <span id="analytics-main-payment">-</span> (<span id="analytics-main-payment-percent">0%</span>)
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-6 bg-white p-5 rounded-xl shadow">
+          <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-list mr-2 text-blue-500"></i> Detalle de Métodos de Pago
+          </h3>
+          <div id="payment-methods-details" class="space-y-2">
+            <!-- Los métodos de pago se mostrarán aquí -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL VENTAS GUARDADAS -->
+  <div id="sales-modal" class="modal">
+    <div class="modal-content">
+      <div class="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-receipt mr-2 text-blue-500"></i> Ventas guardadas
+        </h2>
+        <button id="close-sales-modal" class="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 flex items-center">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
+      </div>
+      
+      <div class="p-4 border-b sticky top-16 bg-white z-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="flex gap-2 items-center">
+          <label class="font-semibold whitespace-nowrap">Desde:</label>
+          <input type="date" id="start-date" class="p-2 border border-gray-300 rounded-lg w-full" />
+        </div>
+        <div class="flex gap-2 items-center">
+          <label class="font-semibold whitespace-nowrap">Hasta:</label>
+          <input type="date" id="end-date" class="p-2 border border-gray-300 rounded-lg w-full" />
+        </div>
+        <div class="flex gap-2 items-center" id="store-filter-container">
+          <label class="font-semibold whitespace-nowrap">Tienda:</label>
+          <select id="store-filter" class="p-2 border border-gray-300 rounded-lg w-full">
+            <option value="all">Todas</option>
+            <option value="506">506</option>
+            <option value="centro">Centro</option>
+            <option value="pavas">Pavas</option>
+            <option value="terramall">Terramall</option>
+            <option value="escazu">Escazú</option>
+            <option value="hot">Hot</option>
+            <option value="desamparados">Desamparados</option>
+            <option value="canonazo">Cańonazo</option>
+            <option value="sabanilla">Sabanilla</option>
+          </select>
+        </div>
+        <div class="flex gap-2 items-center col-span-1 md:col-span-3">
+          <button id="apply-filter" class="btn-primary flex items-center">
+            <i class="fas fa-filter mr-2"></i> Filtrar
+          </button>
+          <button id="clear-filter" class="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 flex items-center">
+            <i class="fas fa-undo mr-2"></i> Limpiar
+          </button>
+          <button id="sync-firebase-btn" class="btn-success flex items-center">
+            <i class="fas fa-sync-alt mr-2"></i> Sincronizar
+          </button>
+        </div>
+      </div>
+      
+      <div class="overflow-auto p-4 max-h-[60vh]">
+        <div id="sales-list" class="space-y-3">
+          <!-- Ventas se mostrarán aquí -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR VENTA -->
+  <div id="edit-sale-modal" class="modal">
+    <div class="modal-content">
+      <div class="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-edit mr-2 text-blue-500"></i> Editar Venta
+        </h2>
+        <button id="close-edit-modal" class="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 flex items-center">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
+      </div>
+      
+      <div class="p-4">
+        <input type="hidden" id="edit-sale-id">
+        <input type="hidden" id="edit-sale-store">
+        
+        <div class="mb-4">
+          <h3 class="text-lg font-semibold mb-2">Artículos:</h3>
+          <div id="edit-items-container" class="space-y-2">
+            <!-- Los artículos editables se mostrarán aquí -->
+          </div>
+          <button id="add-edit-item" class="mt-3 bg-blue-100 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-200 flex items-center">
+            <i class="fas fa-plus mr-1"></i> Agregar artículo
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-2">Método de pago</label>
+            <select id="edit-payment" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="S.Movil">S.Móvil</option>
+              <option value="S.Enlinea">S.Enlínea</option>
+              <option value="Tarjeta">Tarjeta</option>
+              <option value="Efectivo">Efectivo</option>
+              <option value="Cobro dividido">Cobro dividido</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block font-semibold text-gray-700 mb-2">Hora manual (opcional)</label>
+            <input type="time" id="edit-manual-time" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-2 mt-4">
+          <button id="delete-sale" class="btn-danger flex items-center">
+            <i class="fas fa-trash mr-2"></i> Eliminar
+          </button>
+          <button id="save-edit" class="btn-primary flex items-center">
+            <i class="fas fa-save mr-2"></i> Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ADMINISTRACIÓN -->
+  <div id="admin-modal" class="modal">
+    <div class="modal-content">
+      <div class="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-cog mr-2 text-indigo-500"></i> Panel de Administración
+        </h2>
+        <button id="close-admin-modal" class="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 flex items-center">
+          <i class="fas fa-times mr-1"></i> Cerrar
+        </button>
+      </div>
+      
+      <div class="overflow-auto p-4 max-h-[70vh]">
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-users mr-2 text-green-500"></i> Usuarios Conectados
+          </h3>
+          <div id="users-online-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Usuarios se mostrarán aquí -->
+          </div>
+        </div>
+        
+        <div>
+          <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-chart-bar mr-2 text-purple-500"></i> Reporte de Ventas por Tienda
+          </h3>
+          <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="flex gap-2 items-center">
+              <label class="font-semibold whitespace-nowrap">Desde:</label>
+              <input type="date" id="admin-start-date" class="p-2 border border-gray-300 rounded-lg w-full" />
+            </div>
+            <div class="flex gap-2 items-center">
+              <label class="font-semibold whitespace-nowrap">Hasta:</label>
+              <input type="date" id="admin-end-date" class="p-2 border border-gray-300 rounded-lg w-full" />
+            </div>
+            <div class="flex gap-2 items-center">
+              <label class="font-semibold whitespace-nowrap">Tienda:</label>
+              <select id="admin-store-filter" class="p-2 border border-gray-300 rounded-lg w-full">
+                <option value="all">Todas</option>
+                <option value="506">506</option>
+                <option value="centro">Centro</option>
+                <option value="pavas">Pavas</option>
+                <option value="terramall">Terramall</option>
+                <option value="escazu">Escazú</option>
+                <option value="hot">Hot</option>
+                <option value="desamparados">Desamparados</option>
+                <option value="canonazo">Cańonazo</option>
+                <option value="sabanilla">Sabanilla</option>
+              </select>
+            </div>
+            <div class="flex gap-2 items-center">
+              <button id="admin-apply-filter" class="btn-primary flex items-center">
+                <i class="fas fa-filter mr-2"></i> Filtrar
+              </button>
+              <button id="admin-clear-filter" class="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 flex items-center">
+                <i class="fas fa-undo mr-2"></i> Limpiar
+              </button>
+            </div>
+          </div>
+          <div class="flex justify-end mb-4 gap-2">
+            <button id="admin-export-all" class="export-btn">
+              <i class="fas fa-file-archive mr-2"></i> Exportar por tienda
+            </button>
+            <!-- Nuevo botón para exportar todo en un archivo -->
+            <button id="admin-export-all-in-one" class="export-btn bg-purple-600">
+              <i class="fas fa-file-excel mr-2"></i> Exportar todo en un archivo
+            </button>
+            <div id="export-status" class="ml-3 mt-2 text-sm hidden">
+              <i class="fas fa-spinner exporting-spinner mr-2"></i>
+              <span id="export-message">Exportando...</span>
+            </div>
+          </div>
+          <div id="admin-sales-list" class="space-y-3">
+            <!-- Ventas de administración se mostrarán aquí -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    // Configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDjlI3qysLRd41TW3QTImB2XvdrhZ6PV8g",
+      authDomain: "contador-214a3.firebaseapp.com",
+      projectId: "contador-214a3",
+      storageBucket: "contador-214a3.appspot.com",
+      messagingSenderId: "909890810354",
+      appId: "1:909890810354:web:007e7efd4281b25356bb6b"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Variables y DOM
+    const users = { 
+      'admin@accesorios.com': { 
+        password: 'AdminSecure123!', 
+        stores: ['all'],
+        displayName: 'Admin'
+      },
+      'tienda506@accesorios.com': { 
+        password: 'T5062263', 
+        stores: ['506'],
+        displayName: '506-1'
+      },
+      'tienda506-2@accesorios.com': { 
+        password: 'T5062263*', 
+        stores: ['506'],
+        displayName: '506-2'
+      },
+      'centro1@accesorios.com': { 
+        password: 'Centro1Pass456$', 
+        stores: ['centro'],
+        displayName: 'Centro 1'
+      },
+      'centro2@accesorios.com': { 
+        password: 'Centro2Secure789#', 
+        stores: ['centro'],
+        displayName: 'Centro 2'
+      },
+      'pavas1@accesorios.com': { 
+        password: 'Pavas1Acc123$', 
+        stores: ['pavas'],
+        displayName: 'Pavas 1'
+      },
+      'pavas2@accesorios.com': { 
+        password: 'Pavas2Vent456#', 
+        stores: ['pavas'],
+        displayName: 'Pavas 2'
+      },
+      'terramall1@accesorios.com': { 
+        password: 'TerraMall1!789', 
+        stores: ['terramall'],
+        displayName: 'Terramall 1'
+      },
+      'terramall2@accesorios.com': { 
+        password: 'TerraMall2$012', 
+        stores: ['terramall'],
+        displayName: 'Terramall 2'
+      },
+      'escazu1@accesorios.com': { 
+        password: 'Escazu1Acc345#', 
+        stores: ['escazu'],
+        displayName: 'Escazú 1'
+      },
+      'escazu2@accesorios.com': { 
+        password: 'Escazu2Vent678!', 
+        stores: ['escazu'],
+        displayName: 'Escazú 2'
+      },
+      'hot1@accesorios.com': { 
+        password: 'Hot1Store901$', 
+        stores: ['hot'],
+        displayName: 'Hot 1'
+      },
+      'hot2@accesorios.com': { 
+        password: 'Hot2Tienda234#', 
+        stores: ['hot'],
+        displayName: 'Hot 2'
+      },
+      'desamparados1@accesorios.com': { 
+        password: 'Desampa1Acc567!', 
+        stores: ['desamparados'],
+        displayName: 'Desamparados 1'
+      },
+      'desamparados2@accesorios.com': { 
+        password: 'Desampa2Vent890$', 
+        stores: ['desamparados'],
+        displayName: 'Desamparados 2'
+      },
+      'canonazo1@accesorios.com': { 
+        password: 'Canonazo1Acc123#', 
+        stores: ['canonazo'],
+        displayName: 'Cańonazo 1'
+      },
+      'canonazo2@accesorios.com': { 
+        password: 'Canonazo2Vent456!', 
+        stores: ['canonazo'],
+        displayName: 'Cańonazo 2'
+      },
+      'sabanilla1@accesorios.com': { 
+        password: 'Sabanilla1Acc789$', 
+        stores: ['sabanilla'],
+        displayName: 'Sabanilla 1'
+      },
+      'sabanilla2@accesorios.com': { 
+        password: 'Sabanilla2Vent012#', 
+        stores: ['sabanilla'],
+        displayName: 'Sabanilla 2'
+      }
+    };
+    
+    // Referencias a elementos DOM
+    const loginForm = document.getElementById('login-form');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const storeSelect = document.getElementById('selected-store');
+    const errorMessage = document.getElementById('error-message');
+    const loginScreen = document.getElementById('login-screen');
+    const mainContent = document.getElementById('main-content');
+    const logoutBtn = document.getElementById('logout-btn');
+    const exportExcelBtn = document.getElementById('export-excel');
+    const clearAllBtn = document.getElementById('clear-all');
+    const viewSalesBtn = document.getElementById('view-sales');
+    const salesModal = document.getElementById('sales-modal');
+    const salesList = document.getElementById('sales-list');
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    const storeFilter = document.getElementById('store-filter');
+    const storeFilterContainer = document.getElementById('store-filter-container');
+    const applyFilterBtn = document.getElementById('apply-filter');
+    const clearFilterBtn = document.getElementById('clear-filter');
+    const syncFirebaseBtn = document.getElementById('sync-firebase-btn');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    const adminPanelBtn = document.getElementById('admin-panel-btn');
+    const adminModal = document.getElementById('admin-modal');
+    const usersOnlineList = document.getElementById('users-online-list');
+    const adminSalesList = document.getElementById('admin-sales-list');
+    const adminStartDate = document.getElementById('admin-start-date');
+    const adminEndDate = document.getElementById('admin-end-date');
+    const adminStoreFilter = document.getElementById('admin-store-filter');
+    const adminApplyFilter = document.getElementById('admin-apply-filter');
+    const adminClearFilter = document.getElementById('admin-clear-filter');
+    const adminExportAll = document.getElementById('admin-export-all');
+    const exportStatus = document.getElementById('export-status');
+    const exportMessage = document.getElementById('export-message');
+    const userLocations = document.getElementById('user-locations');
+    const currentUser = document.getElementById('current-user');
+    const closeSalesModal = document.getElementById('close-sales-modal');
+    const closeAdminModal = document.getElementById('close-admin-modal');
+    const closeEditModal = document.getElementById('close-edit-modal');
+    const analyticsBtn = document.getElementById('analytics-btn');
+    const analyticsModal = document.getElementById('analytics-modal');
+    const closeAnalyticsModal = document.getElementById('close-analytics-modal');
+    const currentSaleItemsNormal = document.getElementById('current-sale-items-normal');
+    const currentSaleItemsP = document.getElementById('current-sale-items-p');
+    const lastSaleContainer = document.getElementById('last-sale-container');
+    const currentStoreBadge = document.getElementById('current-store-badge');
+    const editItemsContainer = document.getElementById('edit-items-container');
+    const addEditItemBtn = document.getElementById('add-edit-item');
+    const editPayment = document.getElementById('edit-payment');
+    const editManualTime = document.getElementById('edit-manual-time');
+    const saveEditBtn = document.getElementById('save-edit');
+    const deleteSaleBtn = document.getElementById('delete-sale');
+    const editSaleModal = document.getElementById('edit-sale-modal');
+    const editSaleId = document.getElementById('edit-sale-id');
+    const editSaleStore = document.getElementById('edit-sale-store');
+    const analyticsTodaySales = document.getElementById('analytics-today-sales');
+    const analyticsTodayItems = document.getElementById('analytics-today-items');
+    const analyticsPaymentMethods = document.getElementById('analytics-payment-methods');
+    const analyticsMainPayment = document.getElementById('analytics-main-payment');
+    const analyticsMainPaymentPercent = document.getElementById('analytics-main-payment-percent');
+    const paymentMethodsDetails = document.getElementById('payment-methods-details');
+    const adminExportAllInOne = document.getElementById('admin-export-all-in-one');
+    const analyticsStoreFilterContainer = document.getElementById('analytics-store-filter-container');
+    const analyticsStoreFilter = document.getElementById('analytics-store-filter');
+    
+    // Nuevas referencias para la nueva estructura
+    const manualTimeInput = document.getElementById('manual-time');
+    const categorySelectNormal = document.getElementById('selected-category-normal');
+    const categorySelectP = document.getElementById('selected-category-p');
+    const addCategoryNormalBtn = document.getElementById('add-category-normal');
+    const addCategoryPBtn = document.getElementById('add-category-p');
+    const paymentSelectNormal = document.getElementById('selected-payment-normal');
+    const paymentSelectP = document.getElementById('selected-payment-p');
+    const quantityInputNormal = document.getElementById('item-quantity-normal');
+    const quantityInputP = document.getElementById('item-quantity-p');
+    const decreaseQtyNormalBtn = document.querySelector('.decrease-qty-normal');
+    const increaseQtyNormalBtn = document.querySelector('.increase-qty-normal');
+    const decreaseQtyPBtn = document.querySelector('.decrease-qty-p');
+    const increaseQtyPBtn = document.querySelector('.increase-qty-p');
+    const saveSaleNormalBtn = document.getElementById('save-sale-normal');
+    const saveSalePBtn = document.getElementById('save-sale-p');
+
+    // Referencias para la nueva sección VIP
+    const categorySelectV = document.getElementById('selected-category-v');
+    const addCategoryVBtn = document.getElementById('add-category-v');
+    const paymentSelectV = document.getElementById('selected-payment-v');
+    const quantityInputV = document.getElementById('item-quantity-v');
+    const decreaseQtyVBtn = document.querySelector('.decrease-qty-v');
+    const increaseQtyVBtn = document.querySelector('.increase-qty-v');
+    const saveSaleVBtn = document.getElementById('save-sale-v');
+    const currentSaleItemsV = document.getElementById('current-sale-items-v');
+
+    // Variables de estado
+    let currentUserData = null;
+    let currentStore = '';
+    let saleItemsNormal = []; // Artículos de categorías normales
+    let saleItemsP = [];      // Artículos de categorías (P)
+    let saleItemsV = [];      // Artículos de categorías (V) - NUEVO
+    let isMasterUser = false;
+    let salesData = {};
+    let activeSessions = {};
+    let inactivityTimer;
+
+    // Funciones Toast
+    function showToast(msg, type = 'info') {
+      toastMessage.textContent = msg;
+      toast.className = '';
+      toast.classList.add('show');
+      
+      switch(type) {
+        case 'success':
+          toast.classList.add('toast-success');
+          break;
+        case 'error':
+          toast.classList.add('toast-error');
+          break;
+        case 'warning':
+          toast.classList.add('toast-warning');
+          break;
+        default:
+          toast.style.backgroundColor = 'rgba(0,0,0,0.85)';
+      }
+      
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Funciones Firebase
+    async function backupSaleToFirebase(sale) {
+      try {
+        await db.collection('ventas').add({
+          ...sale,
+          backupTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("Venta respaldada en Firebase");
+      } catch (error) {
+        console.error("Error al respaldar venta:", error);
+        showToast('Error al respaldar venta', 'error');
+      }
+    }
+
+    async function getSalesFromFirebase(store = 'all', startDate, endDate) {
+      try {
+        let query = db.collection('ventas')
+          .where('timestamp', '>=', startDate.toISOString())
+          .where('timestamp', '<=', endDate.toISOString());
+        
+        if (store !== 'all') {
+          query = query.where('store', '==', store);
+        }
+        
+        const snapshot = await query.get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (error) {
+        console.error("Error al obtener ventas:", error);
+        
+        // Manejo específico de error de índice
+        if (error.code === 'failed-precondition') {
+          const match = error.message.match(/https:\/\/console\.firebase\.google\.com[^ ]+/);
+          const indexLink = match ? match[0] : '';
+          
+          // Mostrar mensaje con enlace al índice
+          showToast(
+            'Error: Requiere crear un índice en Firebase. Ver consola para el enlace.',
+            'error'
+          );
+          
+          // Registrar en consola para depuración
+          console.error("Enlace para crear el índice:", indexLink);
+          
+          // Devolver datos vacíos para continuar
+          return [];
+        } else {
+          showToast('Error al obtener ventas: ' + error.message, 'error');
+          return [];
+        }
+      }
+    }
+
+    async function syncAllSalesToFirebase() {
+      if (!isMasterUser) return;
+      
+      try {
+        let total = 0;
+        
+        for (const [store, storeData] of Object.entries(salesData)) {
+          for (const sale of storeData.sales) {
+            await backupSaleToFirebase(sale);
+            total++;
+          }
+        }
+        
+        showToast(`Se sincronizaron ${total} ventas a Firebase`, 'success');
+      } catch (error) {
+        showToast('Error al sincronizar ventas', 'error');
+        console.error("Error:", error);
+      }
+    }
+
+    // Almacenamiento local
+    function getLocalStorageData() {
+      const data = localStorage.getItem('salesData');
+      return data ? JSON.parse(data) : {};
+    }
+    
+    function saveLocalStorageData() {
+      localStorage.setItem('salesData', JSON.stringify(salesData));
+    }
+    
+    function initializeStoreData(store) {
+      if (!salesData[store]) {
+        salesData[store] = {
+          sales: [],
+          stats: {
+            todaySales: 0,
+            todayItems: 0,
+            paymentMethods: {}
+          }
+        };
+      }
+    }
+    
+    function updateStoreStats(store, items, payment) {
+      initializeStoreData(store);
+      
+      // Actualizar estadísticas
+      salesData[store].stats.todaySales++;
+      salesData[store].stats.todayItems += items.reduce((sum, item) => sum + item.quantity, 0);
+      
+      // Actualizar métodos de pago
+      if (salesData[store].stats.paymentMethods[payment]) {
+        salesData[store].stats.paymentMethods[payment]++;
+      } else {
+        salesData[store].stats.paymentMethods[payment] = 1;
+      }
+      
+      saveLocalStorageData();
+    }
+    
+    function getStoreStats(store) {
+      initializeStoreData(store);
+      const stats = salesData[store].stats;
+      
+      // Obtener fecha actual en formato YYYY-MM-DD
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Reiniciar estadísticas si es un nuevo día
+      if (!stats.lastUpdated || stats.lastUpdated !== today) {
+        stats.todaySales = 0;
+        stats.todayItems = 0;
+        stats.paymentMethods = {};
+        stats.lastUpdated = today;
+        saveLocalStorageData();
+      }
+      
+      return stats;
+    }
+
+    // Sesión
+    function saveSession(user, store) {
+      localStorage.setItem('currentUser', user);
+      localStorage.setItem('currentStore', store);
+      
+      // Registrar sesión activa
+      if (!activeSessions[store]) activeSessions[store] = [];
+      if (!activeSessions[store].includes(user)) {
+        activeSessions[store].push(user);
+      }
+      localStorage.setItem('activeSessions', JSON.stringify(activeSessions));
+      
+      showToast(`Bienvenido ${users[user].displayName}`, 'success');
+      
+      // Iniciar temporizador de inactividad
+      resetInactivityTimer();
+    }
+
+    function loadSession() {
+      const u = localStorage.getItem('currentUser');
+      const s = localStorage.getItem('currentStore');
+      if (u && s) {
+        currentUserData = u;
+        currentStore = s;
+        isMasterUser = u === 'admin@accesorios.com';
+        return true;
+      }
+      return false;
+    }
+    
+    function clearSession() {
+      const user = localStorage.getItem('currentUser');
+      const store = localStorage.getItem('currentStore');
+      
+      if (user && store && activeSessions[store]) {
+        activeSessions[store] = activeSessions[store].filter(u => u !== user);
+        localStorage.setItem('activeSessions', JSON.stringify(activeSessions));
+      }
+      
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('currentStore');
+      currentUserData = null;
+      currentStore = '';
+      isMasterUser = false;
+      
+      // Limpiar temporizador
+      clearTimeout(inactivityTimer);
+    }
+    
+    // Temporizador de inactividad
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(logoutDueToInactivity, 10 * 60 * 1000); // 10 minutos
+    }
+    
+    function logoutDueToInactivity() {
+      showToast('Sesión cerrada por inactividad', 'warning');
+      clearSession();
+      mainContent.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    }
+
+    function showMainContent() {
+      loginScreen.classList.add('hidden');
+      mainContent.classList.remove('hidden');
+      
+      // Mostrar tienda del usuario
+      userLocations.innerHTML = `<i class="fas fa-map-marker-alt mr-2"></i> ${currentStore}`;
+      
+      currentUser.textContent = users[currentUserData].displayName;
+      currentStoreBadge.textContent = currentStore;
+      
+      // Mostrar panel admin solo para usuarios master
+      adminPanelBtn.classList.toggle('hidden', !isMasterUser);
+      
+      // Mostrar filtro de tienda solo para admin
+      storeFilterContainer.classList.toggle('hidden', !isMasterUser);
+      
+      // Mostrar filtro de tienda en analytics para admin
+      analyticsStoreFilterContainer.classList.toggle('hidden', !isMasterUser);
+      
+      // Cargar datos de ventas
+      salesData = getLocalStorageData();
+      
+      // Actualizar UI
+      updateSaleItemsDisplay();
+      loadLastSale();
+    }
+    
+    function updateAnalyticsStats(store = null) {
+      let stats = null;
+      
+      // Si no se especifica tienda, determinar según el modo
+      if (store === null) {
+        if (isMasterUser) {
+          // En modo admin, usar el valor del filtro
+          store = analyticsStoreFilter.value;
+        } else {
+          // En modo usuario, usar la tienda actual
+          store = currentStore;
+        }
+      }
+      
+      // Obtener estadísticas
+      if (isMasterUser && store === 'all') {
+        // Combinar estadísticas de todas las tiendas
+        stats = combineAllStoreStats();
+      } else {
+        // Obtener estadísticas de una tienda específica
+        stats = getStoreStats(store);
+      }
+      
+      // Actualizar la UI
+      analyticsTodaySales.textContent = stats.todaySales;
+      analyticsTodayItems.textContent = stats.todayItems;
+      
+      // Métodos de pago
+      const paymentCount = Object.keys(stats.paymentMethods).length;
+      analyticsPaymentMethods.textContent = paymentCount;
+      
+      // Método de pago principal
+      if (paymentCount > 0) {
+        let maxPayment = '';
+        let maxCount = 0;
+        let total = 0;
+        
+        for (const [payment, count] of Object.entries(stats.paymentMethods)) {
+          total += count;
+          if (count > maxCount) {
+            maxCount = count;
+            maxPayment = payment;
+          }
+        }
+        
+        const paymentPercent = Math.round((maxCount / total) * 100);
+        analyticsMainPayment.textContent = maxPayment;
+        analyticsMainPaymentPercent.textContent = `${paymentPercent}%`;
+        
+        // Actualizar detalles de métodos de pago
+        paymentMethodsDetails.innerHTML = '';
+        for (const [payment, count] of Object.entries(stats.paymentMethods)) {
+          const percent = Math.round((count / total) * 100);
+          const paymentElement = document.createElement('div');
+          paymentElement.className = 'payment-method-item';
+          
+          // Determinar el icono según el método de pago
+          let paymentIconClass = 'fas fa-money-bill';
+          let iconColorClass = 'payment-movil-icon';
+          
+          if (payment === 'S.Movil') {
+            paymentIconClass = 'fas fa-mobile-alt';
+            iconColorClass = 'payment-movil-icon';
+          } else if (payment === 'S.Enlinea') {
+            paymentIconClass = 'fas fa-globe';
+            iconColorClass = 'payment-enlinea-icon';
+          } else if (payment === 'Tarjeta') {
+            paymentIconClass = 'fas fa-credit-card';
+            iconColorClass = 'payment-tarjeta-icon';
+          } else if (payment === 'Efectivo') {
+            paymentIconClass = 'fas fa-money-bill-wave';
+            iconColorClass = 'payment-efectivo-icon';
+          } else if (payment === 'Cobro dividido') {
+            paymentIconClass = 'fas fa-divide';
+            iconColorClass = 'payment-dividido-icon';
+          }
+          
+          paymentElement.innerHTML = `
+            <div class="payment-method-name">
+              <div class="payment-icon ${iconColorClass}">
+                <i class="${paymentIconClass} text-xs"></i>
+              </div>
+              ${payment}
+            </div>
+            <div class="payment-method-count">
+              <span>${count} ventas</span>
+              <span class="payment-method-percent">${percent}%</span>
+            </div>
+          `;
+          paymentMethodsDetails.appendChild(paymentElement);
+        }
+      } else {
+        analyticsMainPayment.textContent = '-';
+        analyticsMainPaymentPercent.textContent = '0%';
+        paymentMethodsDetails.innerHTML = '<p class="text-gray-500 text-center py-4">No hay datos de métodos de pago</p>';
+      }
+    }
+    
+    function combineAllStoreStats() {
+      const combined = {
+        todaySales: 0,
+        todayItems: 0,
+        paymentMethods: {}
+      };
+      
+      // Recorrer todas las tiendas
+      for (const store in salesData) {
+        const storeStats = getStoreStats(store);
+        combined.todaySales += storeStats.todaySales;
+        combined.todayItems += storeStats.todayItems;
+        
+        // Combinar métodos de pago
+        for (const [payment, count] of Object.entries(storeStats.paymentMethods)) {
+          if (combined.paymentMethods[payment]) {
+            combined.paymentMethods[payment] += count;
+          } else {
+            combined.paymentMethods[payment] = count;
+          }
+        }
+      }
+      
+      return combined;
+    }
+
+    // Funciones de ventas
+    function addNormalCategory() {
+      const category = categorySelectNormal.value;
+      const quantity = parseInt(quantityInputNormal.value) || 1;
+      
+      if (category) {
+        saleItemsNormal.push({ category, quantity });
+        updateSaleItemsDisplay();
+        showToast(`Agregado: ${quantity} ${category}`, 'success');
+      }
+    }
+    
+    function addPCategory() {
+      const category = categorySelectP.value;
+      const quantity = parseInt(quantityInputP.value) || 1;
+      
+      if (category) {
+        saleItemsP.push({ category, quantity });
+        updateSaleItemsDisplay();
+        showToast(`Agregado: ${quantity} ${category}`, 'success');
+      }
+    }
+    
+    // Nueva función para agregar categoría VIP
+    function addVCategory() {
+      const category = categorySelectV.value;
+      const quantity = parseInt(quantityInputV.value) || 1;
+      
+      if (category) {
+        saleItemsV.push({ category, quantity });
+        updateSaleItemsDisplay();
+        showToast(`Agregado: ${quantity} ${category}`, 'success');
+      }
+    }
+    
+    // Actualizar la visualización de artículos
+    function updateSaleItemsDisplay() {
+      updateItemsList(saleItemsNormal, currentSaleItemsNormal, 'normal');
+      updateItemsList(saleItemsP, currentSaleItemsP, 'p');
+      updateItemsList(saleItemsV, currentSaleItemsV, 'v'); // Nuevo para VIP
+    }
+    
+    function updateItemsList(items, container, type) {
+      container.innerHTML = '';
+      
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-shopping-cart text-3xl mb-2"></i>
+            <p>No hay artículos en esta venta</p>
+          </div>
+        `;
+        return;
+      }
+      
+      items.forEach((item, index) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'sale-item p-3 flex justify-between items-center border-b border-gray-100 last:border-b-0';
+        itemElement.innerHTML = `
+          <div>
+            <span class="font-medium">${item.category}</span>
+            <span class="text-gray-600 text-sm ml-2">(${item.quantity} unidades)</span>
+          </div>
+          <button class="text-red-500 hover:text-red-700 remove-item" data-type="${type}" data-index="${index}">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        container.appendChild(itemElement);
+        
+        // Agregar event listeners para eliminar
+        itemElement.querySelector('.remove-item').addEventListener('click', (e) => {
+          const index = parseInt(e.currentTarget.dataset.index);
+          const type = e.currentTarget.dataset.type;
+          
+          if (type === 'normal') {
+            const removedItem = saleItemsNormal.splice(index, 1)[0];
+            showToast(`Eliminado: ${removedItem.quantity} ${removedItem.category}`, 'warning');
+          } else if (type === 'p') {
+            const removedItem = saleItemsP.splice(index, 1)[0];
+            showToast(`Eliminado: ${removedItem.quantity} ${removedItem.category}`, 'warning');
+          } else if (type === 'v') {
+            const removedItem = saleItemsV.splice(index, 1)[0];
+            showToast(`Eliminado: ${removedItem.quantity} ${removedItem.category}`, 'warning');
+          }
+          
+          updateSaleItemsDisplay();
+        });
+      });
+    }
+    
+    // Función para guardar ventas independientes
+    async function saveSale(type) {
+      let items, payment;
+      
+      if (type === 'normal') {
+        items = saleItemsNormal;
+        payment = paymentSelectNormal.value;
+      } else if (type === 'p') {
+        items = saleItemsP;
+        payment = paymentSelectP.value;
+      } else if (type === 'v') {
+        items = saleItemsV;
+        payment = paymentSelectV.value;
+      }
+      
+      if (items.length === 0) {
+        showToast(`Agregue artículos a la sección ${type === 'normal' ? 'Normal' : (type === 'p' ? '(P)' : '(V)')} primero`, 'error');
+        return;
+      }
+      
+      if (!payment) {
+        showToast(`Seleccione método de pago para la sección ${type === 'normal' ? 'Normal' : (type === 'p' ? '(P)' : '(V)')}`, 'error');
+        return;
+      }
+      
+      // Crear objeto de venta
+      const sale = {
+        id: Date.now(),
+        store: currentStore,
+        user: currentUserData,
+        items: [...items],
+        payment: payment,
+        manualTime: manualTimeInput.value || null,
+        timestamp: new Date().toISOString(),
+        type: type
+      };
+      
+      try {
+        // Guardar venta en localStorage
+        initializeStoreData(currentStore);
+        salesData[currentStore].sales.push(sale);
+        saveLocalStorageData();
+        
+        // Actualizar estadísticas
+        updateStoreStats(currentStore, items, payment);
+        
+        // Respaldar en Firebase
+        await backupSaleToFirebase(sale);
+        
+        // Resetear formulario para esta sección
+        if (type === 'normal') {
+          saleItemsNormal = [];
+          paymentSelectNormal.selectedIndex = 0;
+        } else if (type === 'p') {
+          saleItemsP = [];
+          paymentSelectP.selectedIndex = 0;
+        } else if (type === 'v') {
+          saleItemsV = [];
+          paymentSelectV.selectedIndex = 0;
+        }
+        
+        // Actualizar UI
+        updateSaleItemsDisplay();
+        loadLastSale();
+        
+        showToast(`Venta ${type === 'normal' ? 'Normal' : (type === 'p' ? '(P)' : '(V)')} guardada exitosamente!`, 'success');
+      } catch (error) {
+        showToast(`Error al guardar venta ${type === 'normal' ? 'Normal' : (type === 'p' ? '(P)' : '(V)')}`, 'error');
+        console.error('Error:', error);
+      }
+    }
+    
+    // Limpiar todos los artículos
+    function clearAllItems() {
+      saleItemsNormal = [];
+      saleItemsP = [];
+      saleItemsV = []; // Nuevo
+      paymentSelectNormal.selectedIndex = 0;
+      paymentSelectP.selectedIndex = 0;
+      paymentSelectV.selectedIndex = 0; // Nuevo
+      updateSaleItemsDisplay();
+      showToast('Todos los artículos fueron eliminados', 'warning');
+    }
+    
+    function loadLastSale() {
+      initializeStoreData(currentStore);
+      const sales = salesData[currentStore].sales;
+      
+      if (sales.length === 0) {
+        lastSaleContainer.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-receipt text-3xl mb-2"></i>
+            <p>No hay ventas registradas hoy</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const lastSale = sales[sales.length - 1];
+      const date = new Date(lastSale.timestamp);
+      let formattedDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+      
+      // Usar hora manual si existe
+      if (lastSale.manualTime) {
+        formattedDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()} ${lastSale.manualTime}`;
+      }
+      
+      let itemsHtml = lastSale.items.map(item => 
+        `<li>${item.quantity} ${item.category}</li>`
+      ).join('');
+      
+      lastSaleContainer.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+          <div>
+            <div class="font-semibold text-gray-700">Fecha:</div>
+            <div>${formattedDate}</div>
+          </div>
+          <div>
+            <div class="font-semibold text-gray-700">Tienda:</div>
+            <div>${lastSale.store}</div>
+          </div>
+          <div>
+            <div class="font-semibold text-gray-700">Método de pago:</div>
+            <div>${lastSale.payment} (${lastSale.type === 'normal' ? 'Normal' : (lastSale.type === 'p' ? '(P)' : '(V)')})</div>
+          </div>
+        </div>
+        <div class="font-semibold text-gray-700 mb-2">Artículos:</div>
+        <ul class="list-disc pl-5">
+          ${itemsHtml}
+        </ul>
+      `;
+    }
+    
+    function openEditModal(saleId) {
+      // Buscar la venta en todas las tiendas
+      let saleToEdit = null;
+      let saleStore = '';
+      
+      for (const [store, data] of Object.entries(salesData)) {
+        const sale = data.sales.find(s => s.id === saleId);
+        if (sale) {
+          saleToEdit = sale;
+          saleStore = store;
+          break;
+        }
+      }
+      
+      if (!saleToEdit) return;
+      
+      // Guardar ID y tienda para referencia
+      editSaleId.value = saleId;
+      editSaleStore.value = saleStore;
+      
+      // Llenar los campos de edición
+      editItemsContainer.innerHTML = '';
+      
+      saleToEdit.items.forEach((item, index) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'edit-item-row';
+        itemElement.innerHTML = `
+          <select class="p-2 border border-gray-300 rounded-lg flex-1 edit-item-category">
+            <option value="Articulos" ${item.category === 'Articulos' ? 'selected' : ''}>Artículos</option>
+            <option value="Articulos (P)" ${item.category === 'Articulos (P)' ? 'selected' : ''}>Artículos (P)</option>
+            <option value="Articulos (V)" ${item.category === 'Articulos (V)' ? 'selected' : ''}>Artículos (V)</option>
+            <option value="Bisuteria" ${item.category === 'Bisuteria' ? 'selected' : ''}>Bisutería</option>
+            <option value="Bisuteria (P)" ${item.category === 'Bisuteria (P)' ? 'selected' : ''}>Bisutería (P)</option>
+            <option value="Bisuteria (V)" ${item.category === 'Bisuteria (V)' ? 'selected' : ''}>Bisutería (V)</option>
+            <option value="Zapato" ${item.category === 'Zapato' ? 'selected' : ''}>Zapato</option>
+            <option value="Zapato (P)" ${item.category === 'Zapato (P)' ? 'selected' : ''}>Zapato (P)</option>
+            <option value="Zapato (V)" ${item.category === 'Zapato (V)' ? 'selected' : ''}>Zapato (V)</option>
+            <option value="Prenda" ${item.category === 'Prenda' ? 'selected' : ''}>Prenda</option>
+            <option value="Prenda (P)" ${item.category === 'Prenda (P)' ? 'selected' : ''}>Prenda (P)</option>
+            <option value="Prenda (V)" ${item.category === 'Prenda (V)' ? 'selected' : ''}>Prenda (V)</option>
+            <option value="B.Eco" ${item.category === 'B.Eco' ? 'selected' : ''}>B.Eco</option>
+          </select>
+          <input type="number" min="1" value="${item.quantity}" class="w-20 p-2 border border-gray-300 rounded-lg edit-item-quantity">
+          <button class="remove-edit-item bg-red-100 text-red-600 p-2 rounded-lg">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        editItemsContainer.appendChild(itemElement);
+        
+        // Agregar evento de eliminación
+        itemElement.querySelector('.remove-edit-item').addEventListener('click', () => {
+          itemElement.remove();
+        });
+      });
+      
+      // Seleccionar método de pago
+      editPayment.value = saleToEdit.payment;
+      
+      // Hora manual
+      editManualTime.value = saleToEdit.manualTime || '';
+      
+      // Mostrar modal
+      editSaleModal.classList.add('show');
+    }
+    
+    function saveEditedSale() {
+      const saleId = parseInt(editSaleId.value);
+      const store = editSaleStore.value;
+      if (!saleId || !store) return;
+      
+      // Buscar la venta
+      const storeData = salesData[store];
+      if (!storeData) return;
+      
+      const saleIndex = storeData.sales.findIndex(s => s.id === saleId);
+      if (saleIndex === -1) return;
+      
+      const saleToEdit = storeData.sales[saleIndex];
+      const originalSale = JSON.parse(JSON.stringify(saleToEdit)); // Copia profunda
+      
+      // Actualizar artículos
+      saleToEdit.items = [];
+      
+      document.querySelectorAll('.edit-item-row').forEach(row => {
+        const category = row.querySelector('.edit-item-category').value;
+        const quantity = parseInt(row.querySelector('.edit-item-quantity').value) || 1;
+        
+        if (category) {
+          saleToEdit.items.push({ category, quantity });
+        }
+      });
+      
+      // Actualizar otros campos
+      saleToEdit.payment = editPayment.value;
+      saleToEdit.manualTime = editManualTime.value || null;
+      
+      // Verificar si la venta es de hoy
+      const today = new Date().toISOString().split('T')[0];
+      const saleDate = new Date(saleToEdit.timestamp).toISOString().split('T')[0];
+      
+      if (saleDate === today) {
+        // Actualizar estadísticas
+        const stats = salesData[store].stats;
+        
+        // Restar la venta original (con protección para valores negativos)
+        stats.todayItems = Math.max(0, stats.todayItems - originalSale.items.reduce((sum, item) => sum + item.quantity, 0));
+        if (stats.paymentMethods[originalSale.payment]) {
+          stats.paymentMethods[originalSale.payment]--;
+          if (stats.paymentMethods[originalSale.payment] <= 0) {
+            delete stats.paymentMethods[originalSale.payment];
+          }
+        }
+        
+        // Sumar la venta editada
+        stats.todayItems += saleToEdit.items.reduce((sum, item) => sum + item.quantity, 0);
+        if (stats.paymentMethods[saleToEdit.payment]) {
+          stats.paymentMethods[saleToEdit.payment]++;
+        } else {
+          stats.paymentMethods[saleToEdit.payment] = 1;
+        }
+      }
+      
+      // Guardar cambios
+      saveLocalStorageData();
+      
+      // Actualizar UI
+      loadSales();
+      loadLastSale();
+      
+      // Cerrar modal
+      editSaleModal.classList.remove('show');
+      
+      showToast('Venta actualizada exitosamente', 'success');
+    }
+    
+    function deleteSale() {
+      const saleId = parseInt(editSaleId.value);
+      const store = editSaleStore.value;
+      if (!saleId || !store) return;
+      
+      // Buscar y eliminar la venta
+      const storeData = salesData[store];
+      if (storeData) {
+        const index = storeData.sales.findIndex(s => s.id === saleId);
+        if (index !== -1) {
+          const saleToDelete = storeData.sales[index];
+          
+          // Verificar si la venta es de hoy
+          const today = new Date().toISOString().split('T')[0];
+          const saleDate = new Date(saleToDelete.timestamp).toISOString().split('T')[0];
+          
+          if (saleDate === today) {
+            // Actualizar estadísticas con protección para valores negativos
+            const stats = salesData[store].stats;
+            stats.todaySales = Math.max(0, stats.todaySales - 1);
+            stats.todayItems = Math.max(0, stats.todayItems - saleToDelete.items.reduce((sum, item) => sum + item.quantity, 0));
+            
+            if (stats.paymentMethods[saleToDelete.payment]) {
+              stats.paymentMethods[saleToDelete.payment]--;
+              if (stats.paymentMethods[saleToDelete.payment] <= 0) {
+                delete stats.paymentMethods[saleToDelete.payment];
+              }
+            }
+          }
+          
+          storeData.sales.splice(index, 1);
+          saveLocalStorageData();
+          loadSales();
+          loadLastSale();
+          editSaleModal.classList.remove('show');
+          showToast('Venta eliminada exitosamente', 'success');
+        }
+      }
+    }
+    
+    async function loadSales() {
+      const startDate = new Date(startDateInput.value);
+      const endDate = new Date(endDateInput.value);
+      endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
+      
+      const store = isMasterUser ? storeFilter.value : currentStore;
+      
+      salesList.innerHTML = '';
+      
+      // Si es admin, intentar cargar de Firebase primero
+      if (isMasterUser) {
+        try {
+          const firebaseSales = await getSalesFromFirebase(store, startDate, endDate);
+          if (firebaseSales.length > 0) {
+            displaySales(firebaseSales, store);
+            return;
+          }
+        } catch (error) {
+          console.error("Error al cargar de Firebase, mostrando localStorage:", error);
+        }
+      }
+      
+      // Cargar de localStorage si no es admin o si falló Firebase
+      loadSalesFromLocalStorage(store, startDate, endDate);
+    }
+    
+    function loadSalesFromLocalStorage(store, startDate, endDate) {
+      // Recorrer todas las tiendas
+      for (const [storeName, storeData] of Object.entries(salesData)) {
+        // Filtrar por tienda si es necesario
+        if (store !== 'all' && store !== storeName) continue;
+        
+        // Filtrar ventas por fecha
+        const filteredSales = storeData.sales.filter(sale => {
+          const saleDate = new Date(sale.timestamp);
+          return saleDate >= startDate && saleDate < endDate;
+        });
+        
+        if (filteredSales.length === 0) continue;
+        
+        // Crear encabezado de tienda
+        const storeHeader = document.createElement('div');
+        storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+        storeHeader.textContent = `Tienda: ${storeName}`;
+        salesList.appendChild(storeHeader);
+        
+        // Agregar ventas
+        filteredSales.forEach(sale => {
+          const dateObj = new Date(sale.timestamp);
+          let formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+          
+          // Usar hora manual si existe
+          if (sale.manualTime) {
+            formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${sale.manualTime}`;
+          }
+          
+          let itemsHtml = sale.items.map(item => 
+            `<li>${item.quantity} ${item.category}</li>`
+          ).join('');
+          
+          const saleElement = document.createElement('div');
+          saleElement.className = 'border border-gray-200 rounded-lg p-4 mb-3';
+          saleElement.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="font-semibold">${formattedDate}</div>
+                <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
+                <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+              </div>
+              <div class="flex gap-2">
+                <button class="edit-sale-btn bg-yellow-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-sale-btn bg-red-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            <div class="mt-2">
+              <div class="font-semibold">Método de pago: ${sale.payment}</div>
+              <div class="font-semibold mt-1">Artículos:</div>
+              <ul class="list-disc pl-5">
+                ${itemsHtml}
+              </ul>
+            </div>
+          `;
+          
+          salesList.appendChild(saleElement);
+        });
+      }
+      
+      // Agregar event listeners
+      document.querySelectorAll('.edit-sale-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const saleId = parseInt(btn.dataset.id);
+          openEditModal(saleId);
+        });
+      });
+      
+      document.querySelectorAll('.delete-sale-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const saleId = parseInt(btn.dataset.id);
+          if (confirm('żEstás seguro de eliminar esta venta?')) {
+            // Buscar y eliminar la venta
+            for (const [store, data] of Object.entries(salesData)) {
+              const index = data.sales.findIndex(s => s.id === saleId);
+              if (index !== -1) {
+                const saleToDelete = data.sales[index];
+                
+                // Verificar si la venta es de hoy
+                const today = new Date().toISOString().split('T')[0];
+                const saleDate = new Date(saleToDelete.timestamp).toISOString().split('T')[0];
+                
+                if (saleDate === today) {
+                  // Actualizar estadísticas con protección para valores negativos
+                  const stats = data.stats;
+                  stats.todaySales = Math.max(0, stats.todaySales - 1);
+                  stats.todayItems = Math.max(0, stats.todayItems - saleToDelete.items.reduce((sum, item) => sum + item.quantity, 0));
+                  
+                  if (stats.paymentMethods[saleToDelete.payment]) {
+                    stats.paymentMethods[saleToDelete.payment]--;
+                    if (stats.paymentMethods[saleToDelete.payment] <= 0) {
+                      delete stats.paymentMethods[saleToDelete.payment];
+                    }
+                  }
+                }
+                
+                data.sales.splice(index, 1);
+                saveLocalStorageData();
+                loadSales();
+                loadLastSale();
+                showToast('Venta eliminada exitosamente', 'success');
+                return;
+              }
+            }
+          }
+        });
+      });
+    }
+    
+    function displaySales(sales, store) {
+      if (sales.length === 0) {
+        salesList.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-receipt text-3xl mb-2"></i>
+            <p>No hay ventas en el rango seleccionado</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // Agrupar por tienda si es admin y se seleccionó "todas"
+      if (isMasterUser && store === 'all') {
+        const salesByStore = {};
+        
+        sales.forEach(sale => {
+          if (!salesByStore[sale.store]) {
+            salesByStore[sale.store] = [];
+          }
+          salesByStore[sale.store].push(sale);
+        });
+        
+        for (const [store, storeSales] of Object.entries(salesByStore)) {
+          const storeHeader = document.createElement('div');
+          storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+          storeHeader.textContent = `Tienda: ${store}`;
+          salesList.appendChild(storeHeader);
+          
+          storeSales.forEach(sale => createSaleElement(sale));
+        }
+      } else {
+        // Mostrar sin agrupar si se seleccionó una tienda específica
+        const storeHeader = document.createElement('div');
+        storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+        storeHeader.textContent = `Tienda: ${store}`;
+        salesList.appendChild(storeHeader);
+        
+        sales.forEach(sale => createSaleElement(sale));
+      }
+    }
+    
+    function createSaleElement(sale) {
+      const dateObj = new Date(sale.timestamp);
+      let formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+      
+      // Usar hora manual si existe
+      if (sale.manualTime) {
+        formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${sale.manualTime}`;
+      }
+      
+      let itemsHtml = sale.items.map(item => 
+        `<li>${item.quantity} ${item.category}</li>`
+      ).join('');
+      
+      const saleElement = document.createElement('div');
+      saleElement.className = 'border border-gray-200 rounded-lg p-4 mb-3';
+      saleElement.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${formattedDate}</div>
+            <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
+            <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+            ${isMasterUser ? `<div class="text-sm text-gray-600">Tienda: ${sale.store}</div>` : ''}
+          </div>
+          <div class="flex gap-2">
+            <button class="edit-sale-btn bg-yellow-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="delete-sale-btn bg-red-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mt-2">
+          <div class="font-semibold">Método de pago: ${sale.payment}</div>
+          <div class="font-semibold mt-1">Artículos:</div>
+          <ul class="list-disc pl-5">
+            ${itemsHtml}
+          </ul>
+        </div>
+      `;
+      
+      salesList.appendChild(saleElement);
+    }
+    
+    async function loadAdminSales() {
+      const startDate = new Date(adminStartDate.value);
+      const endDate = new Date(adminEndDate.value);
+      endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
+      
+      const store = adminStoreFilter.value;
+      
+      adminSalesList.innerHTML = '';
+      
+      try {
+        // Obtener ventas de Firebase
+        const firebaseSales = await getSalesFromFirebase(store, startDate, endDate);
+        
+        if (firebaseSales.length === 0) {
+          adminSalesList.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i class="fas fa-receipt text-3xl mb-2"></i>
+              <p>No hay ventas en el rango seleccionado</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Mostrar ventas agrupadas por tienda
+        const salesByStore = {};
+        firebaseSales.forEach(sale => {
+          if (!salesByStore[sale.store]) {
+            salesByStore[sale.store] = [];
+          }
+          salesByStore[sale.store].push(sale);
+        });
+        
+        // Mostrar todas las tiendas si se seleccionó "todas"
+        if (store === 'all') {
+          for (const [storeName, storeSales] of Object.entries(salesByStore)) {
+            // Encabezado de tienda
+            const storeHeader = document.createElement('div');
+            storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+            storeHeader.textContent = `Tienda: ${storeName}`;
+            adminSalesList.appendChild(storeHeader);
+            
+            storeSales.forEach(sale => createAdminSaleElement(sale));
+          }
+        } else {
+          // Mostrar solo la tienda seleccionada
+          if (salesByStore[store] && salesByStore[store].length > 0) {
+            // Encabezado de tienda
+            const storeHeader = document.createElement('div');
+            storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+            storeHeader.textContent = `Tienda: ${store}`;
+            adminSalesList.appendChild(storeHeader);
+            
+            salesByStore[store].forEach(sale => createAdminSaleElement(sale));
+          }
+        }
+      } catch (error) {
+        console.error("Error al obtener ventas:", error);
+        adminSalesList.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+            <p>Error al cargar ventas</p>
+          </div>
+        `;
+      }
+    }
+    
+    function createAdminSaleElement(sale) {
+      const dateObj = new Date(sale.timestamp);
+      let formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+      
+      // Usar hora manual si existe
+      if (sale.manualTime) {
+        formattedDate = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${sale.manualTime}`;
+      }
+      
+      let itemsHtml = sale.items.map(item => 
+        `<li>${item.quantity} ${item.category}</li>`
+      ).join('');
+      
+      const saleElement = document.createElement('div');
+      saleElement.className = 'border border-gray-200 rounded-lg p-4 mb-3';
+      saleElement.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${formattedDate}</div>
+            <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
+            <div class="text-sm text-gray-600">Tienda: ${sale.store}</div>
+            <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+          </div>
+        </div>
+        <div class="mt-2">
+          <div class="font-semibold">Método de pago: ${sale.payment}</div>
+          <div class="font-semibold mt-1">Artículos:</div>
+          <ul class="list-disc pl-5">
+            ${itemsHtml}
+          </ul>
+        </div>
+      `;
+      adminSalesList.appendChild(saleElement);
+    }
+    
+    function loadOnlineUsers() {
+      usersOnlineList.innerHTML = '';
+      
+      // Recorrer todas las tiendas
+      for (const [store, usersList] of Object.entries(activeSessions)) {
+        if (usersList.length === 0) continue;
+        
+        // Encabezado de tienda
+        const storeHeader = document.createElement('div');
+        storeHeader.className = 'col-span-full font-semibold text-gray-700 mt-4';
+        storeHeader.textContent = `Tienda: ${store}`;
+        usersOnlineList.appendChild(storeHeader);
+        
+        // Usuarios por tienda
+        usersList.forEach(user => {
+          const userElement = document.createElement('div');
+          userElement.className = 'bg-white p-4 rounded-lg shadow border border-gray-200';
+          userElement.innerHTML = `
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="font-medium flex items-center">
+                  <span class="online-status online"></span>
+                  ${users[user]?.displayName || user}
+                </div>
+                <div class="text-sm text-gray-600">${store}</div>
+              </div>
+              <button class="disconnect-user bg-red-500 text-white px-3 py-1 rounded-lg" data-user="${user}" data-store="${store}">
+                <i class="fas fa-plug mr-1"></i> Desconectar
+              </button>
+            </div>
+          `;
+          usersOnlineList.appendChild(userElement);
+        });
+      }
+      
+      // Agregar event listeners para desconexión
+      document.querySelectorAll('.disconnect-user').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const user = btn.dataset.user;
+          const store = btn.dataset.store;
+          
+          // Eliminar usuario de sesiones activas
+          if (activeSessions[store]) {
+            activeSessions[store] = activeSessions[store].filter(u => u !== user);
+            localStorage.setItem('activeSessions', JSON.stringify(activeSessions));
+            loadOnlineUsers();
+            showToast(`Usuario ${users[user]?.displayName || user} desconectado de ${store}`, 'success');
+          }
+        });
+      });
+    }
+    
+    // Función para generar el libro de Excel para una tienda
+    function generateWorkbookForStore(storeName, sales) {
+      // Definir categorías para las columnas
+      const categories = [
+        'Articulos', 'Articulos (P)', 'Articulos (V)',
+        'Bisuteria', 'Bisuteria (P)', 'Bisuteria (V)',
+        'Zapato', 'Zapato (P)', 'Zapato (V)',
+        'Prenda', 'Prenda (P)', 'Prenda (V)',
+        'B.Eco'
+      ];
+      
+      // Crear array de datos para la hoja
+      const excelData = [];
+      
+      // Encabezados
+      const headers = ['Fecha', 'Hora', 'Ubicación', 'Método de Pago', 'Tipo', ...categories];
+      excelData.push(headers);
+      
+      // Llenar filas
+      sales.forEach(sale => {
+        const dateObj = new Date(sale.timestamp);
+        const date = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()}`;
+        let time = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+        
+        // Usar hora manual si existe
+        if (sale.manualTime) {
+          time = sale.manualTime;
+        }
+        
+        // Filas
+        const row = [date, time, sale.store, sale.payment, sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? 'P' : 'V')];
+        
+        // Inicializar contadores de categorías
+        const categoryCounts = {};
+        categories.forEach(cat => categoryCounts[cat] = 0);
+        
+        // Contar artículos por categoría
+        sale.items.forEach(item => {
+          if (categoryCounts.hasOwnProperty(item.category)) {
+            categoryCounts[item.category] += item.quantity;
+          }
+        });
+        
+        // Agregar contadores a la fila
+        categories.forEach(cat => {
+          row.push(categoryCounts[cat]);
+        });
+        
+        excelData.push(row);
+      });
+      
+      // Crear libro de Excel
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, storeName);
+      return wb;
+    }
+    
+    // Función para exportar una tienda individual
+    async function exportStoreToExcel(storeName) {
+      // Obtener fechas del panel de administración
+      const startDate = new Date(document.getElementById('admin-start-date').value + 'T00:00:00Z');
+      const endDate = new Date(document.getElementById('admin-end-date').value + 'T23:59:59Z');
+      
+      try {
+        // Obtener ventas de Firebase
+        const sales = await getSalesFromFirebase(storeName, startDate, endDate);
+        
+        if (!sales || sales.length === 0) {
+          showToast(`No hay ventas para exportar en ${storeName}`, 'error');
+          return;
+        }
+        
+        // Generar y descargar Excel
+        const wb = generateWorkbookForStore(storeName, sales);
+        XLSX.writeFile(wb, `${storeName}_ventas.xlsx`);
+        showToast(`Exportación de ${storeName} completada`, 'success');
+      } catch (error) {
+        showToast(`Error al exportar ${storeName}: ${error.message}`, 'error');
+      }
+    }
+    
+    // Función para exportar todas las tiendas
+    async function exportAllStores() {
+      const stores = [
+        '506', 'centro', 'pavas', 'terramall', 
+        'escazu', 'hot', 'desamparados', 'canonazo', 'sabanilla'
+      ];
+      
+      // Mostrar estado de exportación
+      exportStatus.classList.remove('hidden');
+      
+      try {
+        for (const store of stores) {
+          exportMessage.textContent = `Exportando ${store}...`;
+          await exportStoreToExcel(store);
+          
+          // Pequeńa pausa entre descargas
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        showToast('Exportación completa de todas las tiendas', 'success');
+      } catch (error) {
+        showToast('Error en exportación completa: ' + error.message, 'error');
+      } finally {
+        exportStatus.classList.add('hidden');
+      }
+    }
+    
+    // Nueva función para exportar todas las ventas en un solo archivo
+    async function exportAllInOneExcel() {
+      const startDate = new Date(document.getElementById('admin-start-date').value + 'T00:00:00Z');
+      const endDate = new Date(document.getElementById('admin-end-date').value + 'T23:59:59Z');
+      
+      try {
+        exportStatus.classList.remove('hidden');
+        exportMessage.textContent = 'Recopilando datos...';
+        
+        // Obtener todas las tiendas
+        const stores = [
+          '506', 'centro', 'pavas', 'terramall', 
+          'escazu', 'hot', 'desamparados', 'canonazo', 'sabanilla'
+        ];
+        
+        // Array para todas las ventas
+        let allSales = [];
+        
+        // Recorrer tiendas y obtener ventas
+        for (const store of stores) {
+          exportMessage.textContent = `Obteniendo ventas de ${store}...`;
+          const sales = await getSalesFromFirebase(store, startDate, endDate);
+          allSales = [...allSales, ...sales];
+        }
+        
+        if (allSales.length === 0) {
+          showToast('No hay ventas para exportar', 'error');
+          exportStatus.classList.add('hidden');
+          return;
+        }
+        
+        // Generar un solo libro con todas las ventas en una hoja
+        const wb = generateWorkbookForAllStores(allSales);
+        XLSX.writeFile(wb, `Todas_las_ventas.xlsx`);
+        showToast('Exportación completa en un solo archivo', 'success');
+      } catch (error) {
+        showToast(`Error al exportar: ${error.message}`, 'error');
+      } finally {
+        exportStatus.classList.add('hidden');
+      }
+    }
+
+    function generateWorkbookForAllStores(sales) {
+      // Definir categorías para las columnas
+      const categories = [
+        'Articulos', 'Articulos (P)', 'Articulos (V)',
+        'Bisuteria', 'Bisuteria (P)', 'Bisuteria (V)',
+        'Zapato', 'Zapato (P)', 'Zapato (V)',
+        'Prenda', 'Prenda (P)', 'Prenda (V)',
+        'B.Eco'
+      ];
+      
+      // Crear array de datos para la hoja
+      const excelData = [];
+      
+      // Encabezados
+      const headers = ['Fecha', 'Hora', 'Tienda', 'Método de Pago', 'Tipo', ...categories];
+      excelData.push(headers);
+      
+      // Llenar filas
+      sales.forEach(sale => {
+        const dateObj = new Date(sale.timestamp);
+        const date = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()}`;
+        let time = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+        
+        // Usar hora manual si existe
+        if (sale.manualTime) {
+          time = sale.manualTime;
+        }
+        
+        // Filas
+        const row = [date, time, sale.store, sale.payment, sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? 'P' : 'V')];
+        
+        // Inicializar contadores de categorías
+        const categoryCounts = {};
+        categories.forEach(cat => categoryCounts[cat] = 0);
+        
+        // Contar artículos por categoría
+        sale.items.forEach(item => {
+          if (categoryCounts.hasOwnProperty(item.category)) {
+            categoryCounts[item.category] += item.quantity;
+          }
+        });
+        
+        // Agregar contadores a la fila
+        categories.forEach(cat => {
+          row.push(categoryCounts[cat]);
+        });
+        
+        excelData.push(row);
+      });
+      
+      // Crear libro de Excel
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Todas las ventas");
+      return wb;
+    }
+    
+    // Función para exportar la tienda actual
+    function exportToExcel() {
+      const storeData = salesData[currentStore];
+      if (!storeData || storeData.sales.length === 0) {
+        showToast('No hay ventas para exportar', 'error');
+        return;
+      }
+      
+      const wb = generateWorkbookForStore(currentStore, storeData.sales);
+      XLSX.writeFile(wb, `${currentStore}_ventas.xlsx`);
+      showToast('Exportación completada', 'success');
+    }
+    
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', () => {
+      // Cargar sesiones activas
+      activeSessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
+      
+      // Configurar fecha actual en los filtros
+      const today = new Date().toISOString().split('T')[0];
+      startDateInput.value = today;
+      endDateInput.value = today;
+      adminStartDate.value = today;
+      adminEndDate.value = today;
+
+      // Intentar cargar sesión al iniciar
+      if (loadSession()) {
+        showMainContent();
+      } else {
+        loginScreen.classList.remove('hidden');
+      }
+
+      // Login
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        const store = storeSelect.value;
+        
+        if (!username || !password || !store) {
+          errorMessage.textContent = 'Usuario, contraseńa y tienda requeridos';
+          errorMessage.classList.remove('hidden');
+          return;
+        }
+        
+        const user = users[username];
+        if (user && user.password === password) {
+          // Verificar si el usuario tiene acceso a la tienda
+          if (username !== 'admin@accesorios.com' && !user.stores.includes(store)) {
+            errorMessage.textContent = 'No tiene acceso a esta tienda';
+            errorMessage.classList.remove('hidden');
+            return;
+          }
+          
+          // Verificar límite de sesiones por tienda (solo si no es admin)
+          if (username !== 'admin@accesorios.com') {
+            if (activeSessions[store] && activeSessions[store].length >= 2) {
+              errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
+              errorMessage.classList.remove('hidden');
+              return;
+            }
+          }
+          
+          currentUserData = username;
+          currentStore = store;
+          isMasterUser = username === 'admin@accesorios.com';
+          saveSession(username, store);
+          showMainContent();
+        } else {
+          errorMessage.textContent = 'Credenciales incorrectas';
+          errorMessage.classList.remove('hidden');
+        }
+      });
+
+      // Logout
+      logoutBtn.addEventListener('click', () => {
+        clearSession();
+        mainContent.classList.add('hidden');
+        loginScreen.classList.remove('hidden');
+        showToast('Sesión cerrada', 'success');
+      });
+
+      // Agregar categorías
+      addCategoryNormalBtn.addEventListener('click', addNormalCategory);
+      addCategoryPBtn.addEventListener('click', addPCategory);
+      addCategoryVBtn.addEventListener('click', addVCategory); // Nuevo para VIP
+      
+      // Guardar ventas independientes
+      saveSaleNormalBtn.addEventListener('click', () => saveSale('normal'));
+      saveSalePBtn.addEventListener('click', () => saveSale('p'));
+      saveSaleVBtn.addEventListener('click', () => saveSale('v')); // Nuevo para VIP
+      
+      // Exportar a Excel
+      exportExcelBtn.addEventListener('click', exportToExcel);
+      
+      // Limpiar todo
+      clearAllBtn.addEventListener('click', clearAllItems);
+      
+      // Ver ventas
+      viewSalesBtn.addEventListener('click', () => {
+        salesModal.classList.add('show');
+        loadSales();
+      });
+
+      // Cerrar modal de ventas
+      closeSalesModal.addEventListener('click', () => {
+        salesModal.classList.remove('show');
+      });
+      
+      // Aplicar filtros en ventas
+      applyFilterBtn.addEventListener('click', loadSales);
+      clearFilterBtn.addEventListener('click', () => {
+        startDateInput.value = today;
+        endDateInput.value = today;
+        storeFilter.value = 'all';
+        loadSales();
+      });
+      
+      // Sincronizar con Firebase
+      syncFirebaseBtn.addEventListener('click', syncAllSalesToFirebase);
+      
+      // Panel de administración
+      adminPanelBtn.addEventListener('click', () => {
+        adminModal.classList.add('show');
+        loadOnlineUsers(); // Cargar usuarios conectados
+        loadAdminSales();
+      });
+
+      // Cerrar modal admin
+      closeAdminModal.addEventListener('click', () => {
+        adminModal.classList.remove('show');
+      });
+      
+      // Aplicar filtros en admin
+      adminApplyFilter.addEventListener('click', loadAdminSales);
+      adminClearFilter.addEventListener('click', () => {
+        adminStartDate.value = today;
+        adminEndDate.value = today;
+        adminStoreFilter.value = 'all';
+        loadAdminSales();
+      });
+      
+      // Exportar todas las ventas desde Firebase (por tienda)
+      adminExportAll.addEventListener('click', exportAllStores);
+      
+      // Exportar todas las ventas en un solo archivo
+      adminExportAllInOne.addEventListener('click', exportAllInOneExcel);
+      
+      // Cerrar modal de edición
+      closeEditModal.addEventListener('click', () => {
+        editSaleModal.classList.remove('show');
+      });
+      
+      // Eventos para cambiar cantidad en categorías normales
+      decreaseQtyNormalBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputNormal.value) || 1;
+        if (current > 1) {
+          quantityInputNormal.value = current - 1;
+        }
+      });
+      
+      increaseQtyNormalBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputNormal.value) || 1;
+        quantityInputNormal.value = current + 1;
+      });
+      
+      // Eventos para cambiar cantidad en categorías P
+      decreaseQtyPBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputP.value) || 1;
+        if (current > 1) {
+          quantityInputP.value = current - 1;
+        }
+      });
+      
+      increaseQtyPBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputP.value) || 1;
+        quantityInputP.value = current + 1;
+      });
+      
+      // Eventos para cambiar cantidad en categorías VIP
+      decreaseQtyVBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputV.value) || 1;
+        if (current > 1) {
+          quantityInputV.value = current - 1;
+        }
+      });
+      
+      increaseQtyVBtn.addEventListener('click', () => {
+        const current = parseInt(quantityInputV.value) || 1;
+        quantityInputV.value = current + 1;
+      });
+      
+      // Agregar ítem en edición
+      addEditItemBtn.addEventListener('click', () => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'edit-item-row';
+        itemElement.innerHTML = `
+          <select class="p-2 border border-gray-300 rounded-lg flex-1 edit-item-category">
+            <option value="Articulos">Artículos</option>
+            <option value="Articulos (P)">Artículos (P)</option>
+            <option value="Articulos (V)">Artículos (V)</option>
+            <option value="Bisuteria">Bisutería</option>
+            <option value="Bisuteria (P)">Bisutería (P)</option>
+            <option value="Bisuteria (V)">Bisutería (V)</option>
+            <option value="Zapato">Zapato</option>
+            <option value="Zapato (P)">Zapato (P)</option>
+            <option value="Zapato (V)">Zapato (V)</option>
+            <option value="Prenda">Prenda</option>
+            <option value="Prenda (P)">Prenda (P)</option>
+            <option value="Prenda (V)">Prenda (V)</option>
+            <option value="B.Eco">B.Eco</option>
+          </select>
+          <input type="number" min="1" value="1" class="w-20 p-2 border border-gray-300 rounded-lg edit-item-quantity">
+          <button class="remove-edit-item bg-red-100 text-red-600 p-2 rounded-lg">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        editItemsContainer.appendChild(itemElement);
+        
+        // Agregar evento de eliminación
+        itemElement.querySelector('.remove-edit-item').addEventListener('click', () => {
+          itemElement.remove();
+        });
+      });
+      
+      // Guardar edición
+      saveEditBtn.addEventListener('click', saveEditedSale);
+      
+      // Eliminar venta
+      deleteSaleBtn.addEventListener('click', deleteSale);
+      
+      // Analytics
+      analyticsBtn.addEventListener('click', () => {
+        analyticsModal.classList.add('show');
+        updateAnalyticsStats();
+      });
+      
+      closeAnalyticsModal.addEventListener('click', () => {
+        analyticsModal.classList.remove('show');
+      });
+      
+      // Cambio en el filtro de tienda en analytics
+      analyticsStoreFilter.addEventListener('change', () => {
+        updateAnalyticsStats();
+      });
+      
+      // Inicializar lista de ventas
+      updateSaleItemsDisplay();
+      
+      // Eventos para reiniciar temporizador de inactividad
+      const events = ['mousemove', 'keydown', 'click', 'scroll'];
+      events.forEach(event => {
+        document.addEventListener(event, resetInactivityTimer);
+      });
+    });
+  })();
+  </script>
+</body>
+
+</html>
