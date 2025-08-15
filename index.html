@@ -2962,47 +2962,58 @@
         });
     }
     
-    // Validar usuario y tienda
-    function validateUserAndStore(user, selectedStore) {
-      // Verificar si el usuario existe en Firestore
-      db.collection('users').doc(user.uid).get()
-        .then((doc) => {
-          if (doc.exists) {
-            const userData = doc.data();
-            currentUserDoc = userData;
-            
-            // Verificar acceso a la tienda seleccionada
-            if (!userData.stores.includes(selectedStore) && userData.role !== 'admin') {
+    // FUNCIÓN MODIFICADA PARA CREAR USUARIOS AUTOMÁTICAMENTE
+    async function validateUserAndStore(user, selectedStore) {
+      try {
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          currentUserDoc = userData;
+          
+          if (!userData.stores.includes(selectedStore) && userData.role !== 'admin') {
+            auth.signOut();
+            showToast('No tiene acceso a esta tienda', 'error');
+            return;
+          }
+          
+          if (userData.role !== 'admin') {
+            if (activeSessions[selectedStore] && activeSessions[selectedStore].length >= 2) {
               auth.signOut();
-              showToast('No tiene acceso a esta tienda', 'error');
+              showToast('Límite de usuarios alcanzado para esta tienda', 'error');
               return;
             }
-            
-            // Verificar límite de sesiones por tienda
-            if (userData.role !== 'admin') {
-              if (activeSessions[selectedStore] && activeSessions[selectedStore].length >= 2) {
-                auth.signOut();
-                showToast('Límite de usuarios alcanzado para esta tienda', 'error');
-                return;
-              }
-            }
-            
-            // Guardar sesión
-            currentUserData = user;
-            currentStore = selectedStore;
-            isMasterUser = userData.role === 'admin';
-            saveSession(user, selectedStore, userData.displayName);
-            showMainContent();
-          } else {
-            // Usuario no existe en Firestore
-            auth.signOut();
-            showToast('Usuario no registrado en el sistema', 'error');
           }
-        })
-        .catch((error) => {
-          console.error("Error obteniendo datos de usuario:", error);
-          showToast('Error al verificar usuario', 'error');
-        });
+          
+          currentUserData = user;
+          currentStore = selectedStore;
+          isMasterUser = userData.role === 'admin';
+          saveSession(user, selectedStore, userData.displayName);
+          showMainContent();
+        } else {
+          // CREAR NUEVO USUARIO AUTOMÁTICAMENTE SI NO EXISTE
+          const newUser = {
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            stores: [selectedStore],
+            role: 'user',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          
+          await db.collection('users').doc(user.uid).set(newUser);
+          
+          currentUserData = user;
+          currentStore = selectedStore;
+          isMasterUser = false;
+          saveSession(user, selectedStore, newUser.displayName);
+          showMainContent();
+          showToast('Usuario registrado exitosamente', 'success');
+        }
+      } catch (error) {
+        console.error("Error obteniendo/creando usuario:", error);
+        showToast('Error al verificar usuario: ' + error.message, 'error');
+        auth.signOut();
+      }
     }
 
     // ============== INICIALIZACIÓN ==============
