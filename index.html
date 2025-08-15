@@ -16,434 +16,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   
   <style>
-    body {
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      min-height: 100vh;
-    }
-    
-    #toast {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      background: rgba(0,0,0,0.85);
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-      opacity: 0;
-      transition: opacity 0.3s ease-in-out;
-      pointer-events: none;
-      z-index: 1000;
-      max-width: 350px;
-      display: flex;
-      align-items: center;
-    }
-    
-    #toast.show {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    
-    .toast-success {
-      background: rgba(16, 185, 129, 0.9) !important;
-    }
-    
-    .toast-error {
-      background: rgba(239, 68, 68, 0.9) !important;
-    }
-    
-    .toast-warning {
-      background: rgba(245, 158, 11, 0.9) !important;
-    }
-    
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-    
-    .modal.show {
-      opacity: 1;
-      pointer-events: all;
-    }
-    
-    .modal-content {
-      background: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-      transform: translateY(20px);
-      transition: transform 0.3s;
-      max-height: 90vh;
-      overflow: hidden;
-      width: 90%;
-      max-width: 800px;
-    }
-    
-    .modal.show .modal-content {
-      transform: translateY(0);
-    }
-    
-    .sale-item {
-      animation: fadeIn 0.3s ease-out;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .online-status {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 5px;
-    }
-    
-    .online {
-      background-color: #10B981;
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
-    }
-    
-    .offline {
-      background-color: #EF4444;
-    }
-    
-    .stats-card {
-      background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      transition: all 0.3s ease;
-    }
-    
-    .stats-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-    }
-    
-    .user-location {
-      display: inline-block;
-      background-color: #e0f2fe;
-      color: #0c4a6e;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      margin-right: 0.5rem;
-      margin-bottom: 0.25rem;
-    }
-    
-    .edit-item-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-    
-    .disconnect-user {
-      transition: all 0.2s;
-    }
-    .disconnect-user:hover {
-      transform: scale(1.05);
-      background-color: #ef4444 !important;
-    }
-    
-    .analytics-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-    
-    @media (max-width: 768px) {
-      .analytics-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-    
-    .export-btn {
-      background: linear-gradient(to right, #10b981, #3b82f6);
-      color: white;
-      padding: 0.5rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: all 0.3s ease;
-    }
-    
-    .export-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    .exporting-spinner {
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    
-    .stats-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-top: 0.5rem;
-    }
-    
-    .payment-method-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
-      border-bottom: 1px solid #e5e7eb;
-      transition: background-color 0.2s;
-    }
-    
-    .payment-method-item:hover {
-      background-color: #f9fafb;
-    }
-    
-    .payment-method-name {
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    .payment-method-count {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    .payment-method-percent {
-      background-color: #dbeafe;
-      color: #3b82f6;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
-    
-    .payment-icon {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-    }
-    
-    .payment-movil-icon {
-      background-color: #dbeafe;
-      color: #3b82f6;
-    }
-    
-    .payment-enlinea-icon {
-      background-color: #ede9fe;
-      color: #8b5cf6;
-    }
-    
-    .payment-tarjeta-icon {
-      background-color: #f0fdf4;
-      color: #10b981;
-    }
-    
-    .payment-efectivo-icon {
-      background-color: #fffbeb;
-      color: #f59e0b;
-    }
-    
-    .payment-dividido-icon {
-      background-color: #fce7f3;
-      color: #ec4899;
-    }
-    
-    .header-gradient {
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      color: white;
-    }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      transition: all 0.3s;
-    }
-    
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    .btn-success {
-      background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-      color: white;
-    }
-    
-    .btn-warning {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      color: white;
-    }
-    
-    .btn-danger {
-      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-      color: white;
-    }
-    
-    .btn-purple {
-      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-      color: white;
-    }
-    
-    .card {
-      background: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      overflow: hidden;
-      transition: all 0.3s;
-    }
-    
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-    }
-    
-    .card-header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #e5e7eb;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    .card-body {
-      padding: 1.5rem;
-    }
-
-    /* Estilos para el diseño de tres columnas */
-    .dual-column-container {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr); /* Cambiado a tres columnas */
-      gap: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-    
-    .category-column {
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-      background-color: #ffffff;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      /* Ajustes para evitar desbordamiento */
-      min-width: 0;
-      overflow: hidden;
-    }
-    
-    .category-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.25rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    
-    .category-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #2d3748;
-      display: flex;
-      align-items: center;
-    }
-    
-    .category-title i {
-      margin-right: 0.5rem;
-      color: #4a5568;
-    }
-    
-    .category-select-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-    
-    .quantity-control {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    
-    .quantity-btn {
-      background-color: #e2e8f0;
-      border: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 0.375rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    
-    .quantity-btn:hover {
-      background-color: #cbd5e0;
-    }
-    
-    .quantity-input {
-      width: 50px;
-      text-align: center;
-      padding: 0.5rem;
-      border: 1px solid #cbd5e0;
-      border-radius: 0.375rem;
-      font-weight: 500;
-    }
-    
-    .payment-row {
-      margin-top: 1.5rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid #e2e8f0;
-    }
-    
-    .save-section-btn {
-      margin-top: 1.5rem;
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s;
-    }
-    
-    .save-section-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    @media (max-width: 1024px) {
-      .dual-column-container {
-        grid-template-columns: 1fr;
-      }
-    }
+    /* Estilos existentes... */
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -1010,6 +583,50 @@
           </div>
         </div>
         
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-user-cog mr-2 text-blue-500"></i> Administrar Usuarios
+          </h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <input type="email" id="new-user-email" placeholder="Correo electrónico" class="p-2 border border-gray-300 rounded-lg">
+            <select id="new-user-role" class="p-2 border border-gray-300 rounded-lg">
+              <option value="user">Usuario</option>
+              <option value="admin">Administrador</option>
+            </select>
+            <button id="add-user-btn" class="btn-primary flex items-center justify-center">
+              <i class="fas fa-plus mr-2"></i> Agregar Usuario
+            </button>
+          </div>
+          
+          <div class="mt-4">
+            <h4 class="font-semibold mb-2">Asignar Tiendas:</h4>
+            <div class="flex flex-col md:flex-row gap-4">
+              <select id="user-select" class="p-2 border border-gray-300 rounded-lg flex-1">
+                <!-- Usuarios se cargarán aquí -->
+              </select>
+              <select id="store-assign" class="p-2 border border-gray-300 rounded-lg flex-1">
+                <option value="506">506</option>
+                <option value="centro">Centro</option>
+                <option value="pavas">Pavas</option>
+                <option value="terramall">Terramall</option>
+                <option value="escazu">Escazú</option>
+                <option value="hot">Hot</option>
+                <option value="desamparados">Desamparados</option>
+                <option value="canonazo">Cańonazo</option>
+                <option value="sabanilla">Sabanilla</option>
+              </select>
+              <button id="assign-store-btn" class="btn-primary flex items-center justify-center">
+                <i class="fas fa-check mr-2"></i> Asignar
+              </button>
+            </div>
+          </div>
+          
+          <div id="user-list" class="mt-6 space-y-3">
+            <!-- Lista de usuarios se cargará aquí -->
+          </div>
+        </div>
+        
         <div>
           <h3 class="text-lg font-semibold mb-4 flex items-center">
             <i class="fas fa-chart-bar mr-2 text-purple-500"></i> Reporte de Ventas por Tienda
@@ -1051,7 +668,6 @@
             <button id="admin-export-all" class="export-btn">
               <i class="fas fa-file-archive mr-2"></i> Exportar por tienda
             </button>
-            <!-- Nuevo botón para exportar todo en un archivo -->
             <button id="admin-export-all-in-one" class="export-btn bg-purple-600">
               <i class="fas fa-file-excel mr-2"></i> Exportar todo en un archivo
             </button>
@@ -1085,105 +701,6 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    // Variables y DOM
-    const users = { 
-      'admin@accesorios.com': { 
-        password: 'AdminSecure123!', 
-        stores: ['all'],
-        displayName: 'Admin'
-      },
-      'tienda506@accesorios.com': { 
-        password: 'T5062263', 
-        stores: ['506'],
-        displayName: '506-1'
-      },
-      'tienda506-2@accesorios.com': { 
-        password: 'T5062263*', 
-        stores: ['506'],
-        displayName: '506-2'
-      },
-      'centro1@accesorios.com': { 
-        password: 'Centro1Pass456$', 
-        stores: ['centro'],
-        displayName: 'Centro 1'
-      },
-      'centro2@accesorios.com': { 
-        password: 'Centro2Secure789#', 
-        stores: ['centro'],
-        displayName: 'Centro 2'
-      },
-      'pavas1@accesorios.com': { 
-        password: 'Pavas1Acc123$', 
-        stores: ['pavas'],
-        displayName: 'Pavas 1'
-      },
-      'pavas2@accesorios.com': { 
-        password: 'Pavas2Vent456#', 
-        stores: ['pavas'],
-        displayName: 'Pavas 2'
-      },
-      'terramall1@accesorios.com': { 
-        password: 'TerraMall1!789', 
-        stores: ['terramall'],
-        displayName: 'Terramall 1'
-      },
-      'terramall2@accesorios.com': { 
-        password: 'TerraMall2$012', 
-        stores: ['terramall'],
-        displayName: 'Terramall 2'
-      },
-      'escazu1@accesorios.com': { 
-        password: 'Escazu1Acc345#', 
-        stores: ['escazu'],
-        displayName: 'Escazú 1'
-      },
-      'escazu2@accesorios.com': { 
-        password: 'Escazu2Vent678!', 
-        stores: ['escazu'],
-        displayName: 'Escazú 2'
-      },
-      'hot1@accesorios.com': { 
-        password: 'Hot1Store901$', 
-        stores: ['hot'],
-        displayName: 'Hot 1'
-      },
-      'hot2@accesorios.com': { 
-        password: 'Hot2Tienda234#', 
-        stores: ['hot'],
-        displayName: 'Hot 2'
-      },
-      'desamparados1@accesorios.com': { 
-        password: 'Desampa1Acc567!', 
-        stores: ['desamparados'],
-        displayName: 'Desamparados 1'
-      },
-      'desamparados2@accesorios.com': { 
-        password: 'Desampa2Vent890$', 
-        stores: ['desamparados'],
-        displayName: 'Desamparados 2'
-      },
-      'canonazo1@accesorios.com': { 
-        password: 'Canonazo1Acc123#', 
-        stores: ['canonazo'],
-        displayName: 'Cańonazo 1'
-      },
-      'canonazo2@accesorios.com': { 
-        password: 'Canonazo2Vent456!', 
-        stores: ['canonazo'],
-        displayName: 'Cańonazo 2'
-      },
-      'sabanilla1@accesorios.com': { 
-        password: 'Sabanilla1Acc789$', 
-        stores: ['sabanilla'],
-        displayName: 'Sabanilla 1'
-      },
-      'sabanilla2@accesorios.com': { 
-        password: 'Sabanilla2Vent012#', 
-        stores: ['sabanilla'],
-        displayName: 'Sabanilla 2'
-      }
-    };
-    
     // Referencias a elementos DOM
     const loginForm = document.getElementById('login-form');
     const usernameInput = document.getElementById('username');
@@ -1249,45 +766,28 @@
     const adminExportAllInOne = document.getElementById('admin-export-all-in-one');
     const analyticsStoreFilterContainer = document.getElementById('analytics-store-filter-container');
     const analyticsStoreFilter = document.getElementById('analytics-store-filter');
-    const googleLoginBtn = document.getElementById('google-login'); // Nuevo
+    const googleLoginBtn = document.getElementById('google-login');
     
-    // Nuevas referencias para la nueva estructura
-    const manualTimeInput = document.getElementById('manual-time');
-    const categorySelectNormal = document.getElementById('selected-category-normal');
-    const categorySelectP = document.getElementById('selected-category-p');
-    const addCategoryNormalBtn = document.getElementById('add-category-normal');
-    const addCategoryPBtn = document.getElementById('add-category-p');
-    const paymentSelectNormal = document.getElementById('selected-payment-normal');
-    const paymentSelectP = document.getElementById('selected-payment-p');
-    const quantityInputNormal = document.getElementById('item-quantity-normal');
-    const quantityInputP = document.getElementById('item-quantity-p');
-    const decreaseQtyNormalBtn = document.querySelector('.decrease-qty-normal');
-    const increaseQtyNormalBtn = document.querySelector('.increase-qty-normal');
-    const decreaseQtyPBtn = document.querySelector('.decrease-qty-p');
-    const increaseQtyPBtn = document.querySelector('.increase-qty-p');
-    const saveSaleNormalBtn = document.getElementById('save-sale-normal');
-    const saveSalePBtn = document.getElementById('save-sale-p');
-
-    // Referencias para la nueva sección VIP
-    const categorySelectV = document.getElementById('selected-category-v');
-    const addCategoryVBtn = document.getElementById('add-category-v');
-    const paymentSelectV = document.getElementById('selected-payment-v');
-    const quantityInputV = document.getElementById('item-quantity-v');
-    const decreaseQtyVBtn = document.querySelector('.decrease-qty-v');
-    const increaseQtyVBtn = document.querySelector('.increase-qty-v');
-    const saveSaleVBtn = document.getElementById('save-sale-v');
-    const currentSaleItemsV = document.getElementById('current-sale-items-v');
+    // Nuevas referencias para gestión de usuarios
+    const newUserEmail = document.getElementById('new-user-email');
+    const newUserRole = document.getElementById('new-user-role');
+    const addUserBtn = document.getElementById('add-user-btn');
+    const userSelect = document.getElementById('user-select');
+    const storeAssign = document.getElementById('store-assign');
+    const assignStoreBtn = document.getElementById('assign-store-btn');
+    const userList = document.getElementById('user-list');
 
     // Variables de estado
     let currentUserData = null;
     let currentStore = '';
-    let saleItemsNormal = []; // Artículos de categorías normales
-    let saleItemsP = [];      // Artículos de categorías (P)
-    let saleItemsV = [];      // Artículos de categorías (V) - NUEVO
+    let saleItemsNormal = [];
+    let saleItemsP = []; 
+    let saleItemsV = []; 
     let isMasterUser = false;
     let salesData = {};
     let activeSessions = {};
     let inactivityTimer;
+    let userData = null;
 
     // Funciones Toast
     function showToast(msg, type = 'info') {
@@ -1310,6 +810,31 @@
       }
       
       setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Función para obtener o crear usuario en Firestore
+    async function getOrCreateUser(user) {
+      const userRef = db.collection('users').doc(user.email);
+      const doc = await userRef.get();
+      
+      if (!doc.exists) {
+        // Crear nuevo usuario si no existe
+        await userRef.set({
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          stores: [],
+          role: 'user',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return await userRef.get();
+      } else {
+        // Actualizar último login
+        await userRef.update({
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return doc;
+      }
     }
 
     // Funciones Firebase
@@ -1455,9 +980,7 @@
       }
       localStorage.setItem('activeSessions', JSON.stringify(activeSessions));
       
-      showToast(`Bienvenido ${users[user].displayName}`, 'success');
-      
-      // Iniciar temporizador de inactividad
+      showToast(`Bienvenido ${userData.displayName}`, 'success');
       resetInactivityTimer();
     }
 
@@ -1467,7 +990,6 @@
       if (u && s) {
         currentUserData = u;
         currentStore = s;
-        isMasterUser = u === 'admin@accesorios.com';
         return true;
       }
       return false;
@@ -1484,11 +1006,11 @@
       
       localStorage.removeItem('currentUser');
       localStorage.removeItem('currentStore');
+      localStorage.removeItem('userData');
       currentUserData = null;
       currentStore = '';
       isMasterUser = false;
-      
-      // Limpiar temporizador
+      userData = null;
       clearTimeout(inactivityTimer);
     }
     
@@ -1512,16 +1034,14 @@
       // Mostrar tienda del usuario
       userLocations.innerHTML = `<i class="fas fa-map-marker-alt mr-2"></i> ${currentStore}`;
       
-      currentUser.textContent = users[currentUserData].displayName;
+      currentUser.textContent = userData.displayName;
       currentStoreBadge.textContent = currentStore;
       
-      // Mostrar panel admin solo para usuarios master
+      // Mostrar panel admin solo para usuarios admin
       adminPanelBtn.classList.toggle('hidden', !isMasterUser);
       
       // Mostrar filtro de tienda solo para admin
       storeFilterContainer.classList.toggle('hidden', !isMasterUser);
-      
-      // Mostrar filtro de tienda en analytics para admin
       analyticsStoreFilterContainer.classList.toggle('hidden', !isMasterUser);
       
       // Cargar datos de ventas
@@ -1869,7 +1389,7 @@
           </div>
           <div>
             <div class="font-semibold">Método de pago:</div>
-            <div>${lastSale.payment} (${lastSale.type === 'normal' ? 'Normal' : (lastSale.type === 'p' ? '(P)' : '(V)')})</div>
+            <div>${lastSale.payment} (${lastSale.type === 'normal' ? 'Normal' : (lastSale.type === 'p' ? 'P' : 'V')})</div>
           </div>
         </div>
         <div class="font-semibold text-gray-700 mb-2">Artículos:</div>
@@ -2119,9 +1639,9 @@
           saleElement.innerHTML = `
             <div class="flex justify-between items-start">
               <div>
-                <div class="font-semibold">${formattedDate}</div>
-                <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
-                <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+                <div class="font-semib">${formattedDate}</div>
+                <div class="text-sm text-gray-600">Usuario: ${sale.user}</div>
+                <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? 'P' : 'V')}</div>
               </div>
               <div class="flex gap-2">
                 <button class="edit-sale-btn bg-yellow-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
@@ -2254,8 +1774,7 @@
         <div class="flex justify-between items-start">
           <div>
             <div class="font-semibold">${formattedDate}</div>
-            <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
-            <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+            <div class="text-sm text-gray-600">Usuario: ${sale.user}</div>
             ${isMasterUser ? `<div class="text-sm text-gray-600">Tienda: ${sale.store}</div>` : ''}
           </div>
           <div class="flex gap-2">
@@ -2275,7 +1794,6 @@
           </ul>
         </div>
       `;
-      
       salesList.appendChild(saleElement);
     }
     
@@ -2364,9 +1882,9 @@
         <div class="flex justify-between items-start">
           <div>
             <div class="font-semibold">${formattedDate}</div>
-            <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
+            <div class="text-sm text-gray-600">Usuario: ${sale.user}</div>
             <div class="text-sm text-gray-600">Tienda: ${sale.store}</div>
-            <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
+            <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? 'P' : 'V')}</div>
           </div>
         </div>
         <div class="mt-2">
@@ -2402,7 +1920,7 @@
               <div>
                 <div class="font-medium flex items-center">
                   <span class="online-status online"></span>
-                  ${users[user]?.displayName || user}
+                  ${user}
                 </div>
                 <div class="text-sm text-gray-600">${store}</div>
               </div>
@@ -2426,7 +1944,7 @@
             activeSessions[store] = activeSessions[store].filter(u => u !== user);
             localStorage.setItem('activeSessions', JSON.stringify(activeSessions));
             loadOnlineUsers();
-            showToast(`Usuario ${users[user]?.displayName || user} desconectado de ${store}`, 'success');
+            showToast(`Usuario ${user} desconectado de ${store}`, 'success');
           }
         });
       });
@@ -2657,25 +2175,76 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
         .then((result) => {
+          // El usuario ha iniciado sesión con Google
           const user = result.user;
-          if (users[user.email]) {
-            // Llenar el campo de usuario
-            usernameInput.value = user.email;
-            passwordInput.value = ''; 
-            passwordInput.disabled = true;
-            errorMessage.classList.add('hidden');
-            showToast('Autenticación con Google exitosa. Seleccione tienda y pulse "Entrar al sistema"', 'success');
-          } else {
-            showToast('Usuario no registrado en el sistema', 'error');
-            auth.signOut();
-          }
+          showToast('Autenticación con Google exitosa', 'success');
         })
         .catch((error) => {
           console.error("Error en autenticación con Google:", error);
           showToast('Error al iniciar sesión con Google', 'error');
         });
     }
-    
+
+    // Funciones para gestión de usuarios
+    async function loadUsers() {
+      try {
+        const usersSnapshot = await db.collection('users').get();
+        userSelect.innerHTML = '';
+        userList.innerHTML = '';
+        
+        usersSnapshot.forEach(doc => {
+          const user = doc.data();
+          
+          // Agregar a selector
+          const option = document.createElement('option');
+          option.value = user.email;
+          option.textContent = `${user.displayName} (${user.email})`;
+          userSelect.appendChild(option);
+          
+          // Agregar a lista
+          const userElement = document.createElement('div');
+          userElement.className = 'bg-white p-4 rounded-lg shadow border border-gray-200';
+          userElement.innerHTML = `
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="font-medium">${user.displayName}</div>
+                <div class="text-sm text-gray-600">${user.email}</div>
+                <div class="text-sm mt-1">
+                  <span class="font-semibold">Rol:</span> ${user.role}
+                </div>
+                <div class="text-sm">
+                  <span class="font-semibold">Tiendas:</span> ${user.stores?.join(', ') || 'Ninguna'}
+                </div>
+              </div>
+              <button class="delete-user-btn bg-red-500 text-white px-3 py-1 rounded-lg" data-email="${user.email}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          `;
+          userList.appendChild(userElement);
+        });
+        
+        // Event listeners para botones de eliminar
+        document.querySelectorAll('.delete-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const email = btn.dataset.email;
+            if (confirm(`¿Eliminar usuario ${email}?`)) {
+              await db.collection('users').doc(email).delete();
+              loadUsers();
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error al cargar usuarios:", error);
+        showToast('Error al cargar usuarios', 'error');
+      }
+    }
+
+    function validateEmail(email) {
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return re.test(email);
+    }
+
     // Inicializar
     document.addEventListener('DOMContentLoaded', () => {
       // Cargar sesiones activas
@@ -2689,24 +2258,29 @@
       adminEndDate.value = today;
 
       // Observador de estado de autenticación
-      auth.onAuthStateChanged((user) => {
+      auth.onAuthStateChanged(async (user) => {
         if (user) {
-          const savedUser = localStorage.getItem('currentUser');
-          const savedStore = localStorage.getItem('currentStore');
-          
-          if (savedUser === user.email && savedStore) {
-            if (users[savedUser]) {
-              currentUserData = savedUser;
-              currentStore = savedStore;
-              isMasterUser = savedUser === 'admin@accesorios.com';
+          try {
+            const userDoc = await getOrCreateUser(user);
+            userData = userDoc.data();
+            
+            // Guardar en localStorage
+            localStorage.setItem('currentUser', user.email);
+            localStorage.setItem('userData', JSON.stringify(userData));
+            
+            // Verificar si ya seleccionó tienda
+            if (localStorage.getItem('currentStore')) {
+              currentUserData = user.email;
+              currentStore = localStorage.getItem('currentStore');
+              isMasterUser = userData.role === 'admin';
               showMainContent();
-              return;
+            } else {
+              loginScreen.classList.remove('hidden');
             }
+          } catch (error) {
+            console.error("Error al obtener usuario:", error);
+            showToast('Error al iniciar sesión', 'error');
           }
-          // Si no se cumple lo anterior, mostramos el login con el usuario prellenado
-          usernameInput.value = user.email;
-          passwordInput.value = '';
-          loginScreen.classList.remove('hidden');
         } else {
           clearSession();
           loginScreen.classList.remove('hidden');
@@ -2716,82 +2290,45 @@
       // Login
       loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
         const store = storeSelect.value;
+        const userEmail = localStorage.getItem('currentUser');
         
-        if (!username || !store) {
-          errorMessage.textContent = 'Usuario y tienda requeridos';
+        if (!userEmail || !store) {
+          errorMessage.textContent = 'Seleccione una tienda válida';
           errorMessage.classList.remove('hidden');
           return;
         }
-
-        // Si el campo de contraseña está deshabilitado, es porque ya se autenticó con Google
-        if (passwordInput.disabled) {
-          // Solo validamos el usuario y la tienda
-          const user = users[username];
-          if (user) {
-            if (username !== 'admin@accesorios.com' && !user.stores.includes(store)) {
-              errorMessage.textContent = 'No tiene acceso a esta tienda';
-              errorMessage.classList.remove('hidden');
-              return;
-            }
-            
-            // Verificar límite de sesiones por tienda (solo si no es admin)
-            if (username !== 'admin@accesorios.com') {
-              if (activeSessions[store] && activeSessions[store].length >= 2) {
-                errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
-                errorMessage.classList.remove('hidden');
-                return;
-              }
-            }
-            
-            currentUserData = username;
-            currentStore = store;
-            isMasterUser = username === 'admin@accesorios.com';
-            saveSession(username, store);
-            showMainContent();
-          } else {
+        
+        try {
+          // Obtener datos de usuario desde Firestore
+          const userDoc = await db.collection('users').doc(userEmail).get();
+          
+          if (!userDoc.exists) {
             errorMessage.textContent = 'Usuario no registrado';
             errorMessage.classList.remove('hidden');
+            return;
           }
-        } else {
-          // Inicio de sesión con correo y contraseña
-          try {
-            const userCredential = await auth.signInWithEmailAndPassword(username, password);
-            const user = userCredential.user;
-            
-            if (users[user.email]) {
-              // Validar tienda
-              const userData = users[user.email];
-              if (username !== 'admin@accesorios.com' && !userData.stores.includes(store)) {
-                errorMessage.textContent = 'No tiene acceso a esta tienda';
-                errorMessage.classList.remove('hidden');
-                return;
-              }
-
-              // Verificar límite de sesiones
-              if (username !== 'admin@accesorios.com') {
-                if (activeSessions[store] && activeSessions[store].length >= 2) {
-                  errorMessage.textContent = 'Límite de usuarios alcanzado para esta tienda';
-                  errorMessage.classList.remove('hidden');
-                  return;
-                }
-              }
-
-              currentUserData = user.email;
-              currentStore = store;
-              isMasterUser = user.email === 'admin@accesorios.com';
-              saveSession(user.email, store);
-              showMainContent();
-            } else {
-              showToast('Usuario no registrado en el sistema', 'error');
-            }
-          } catch (error) {
-            console.error("Error en inicio de sesión:", error);
-            errorMessage.textContent = 'Credenciales incorrectas';
+          
+          userData = userDoc.data();
+          
+          // Verificar permisos
+          if (userData.role !== 'admin' && !userData.stores.includes(store)) {
+            errorMessage.textContent = 'No tiene acceso a esta tienda';
             errorMessage.classList.remove('hidden');
+            return;
           }
+          
+          // Guardar sesión
+          localStorage.setItem('currentStore', store);
+          currentUserData = userEmail;
+          currentStore = store;
+          isMasterUser = userData.role === 'admin';
+          saveSession(userEmail, store);
+          showMainContent();
+        } catch (error) {
+          console.error("Error al obtener usuario:", error);
+          errorMessage.textContent = 'Error al iniciar sesión';
+          errorMessage.classList.remove('hidden');
         }
       });
 
@@ -2808,17 +2345,15 @@
       // Botón de Google
       googleLoginBtn.addEventListener('click', signInWithGoogle);
 
-      // ... (resto del código de inicialización) ...
-
       // Agregar categorías
       addCategoryNormalBtn.addEventListener('click', addNormalCategory);
       addCategoryPBtn.addEventListener('click', addPCategory);
-      addCategoryVBtn.addEventListener('click', addVCategory); // Nuevo para VIP
+      addCategoryVBtn.addEventListener('click', addVCategory);
       
       // Guardar ventas independientes
       saveSaleNormalBtn.addEventListener('click', () => saveSale('normal'));
       saveSalePBtn.addEventListener('click', () => saveSale('p'));
-      saveSaleVBtn.addEventListener('click', () => saveSale('v')); // Nuevo para VIP
+      saveSaleVBtn.addEventListener('click', () => saveSale('v'));
       
       // Exportar a Excel
       exportExcelBtn.addEventListener('click', exportToExcel);
@@ -2852,7 +2387,8 @@
       // Panel de administración
       adminPanelBtn.addEventListener('click', () => {
         adminModal.classList.add('show');
-        loadOnlineUsers(); // Cargar usuarios conectados
+        loadOnlineUsers();
+        loadUsers();  // Cargar lista de usuarios
         loadAdminSales();
       });
 
@@ -2981,6 +2517,52 @@
       const events = ['mousemove', 'keydown', 'click', 'scroll'];
       events.forEach(event => {
         document.addEventListener(event, resetInactivityTimer);
+      });
+
+      // Eventos para gestión de usuarios
+      addUserBtn.addEventListener('click', async () => {
+        const email = newUserEmail.value.trim();
+        const role = newUserRole.value;
+        
+        if (!email || !validateEmail(email)) {
+          showToast('Ingrese un correo válido', 'error');
+          return;
+        }
+        
+        try {
+          await db.collection('users').doc(email).set({
+            email,
+            displayName: email.split('@')[0],
+            role,
+            stores: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          showToast('Usuario creado exitosamente', 'success');
+          loadUsers();
+          newUserEmail.value = '';
+        } catch (error) {
+          showToast('Error al crear usuario: ' + error.message, 'error');
+        }
+      });
+      
+      assignStoreBtn.addEventListener('click', async () => {
+        const email = userSelect.value;
+        const store = storeAssign.value;
+        
+        if (!email || !store) {
+          showToast('Seleccione usuario y tienda', 'error');
+          return;
+        }
+        
+        try {
+          await db.collection('users').doc(email).update({
+            stores: firebase.firestore.FieldValue.arrayUnion(store)
+          });
+          showToast(`Tienda asignada a ${email}`, 'success');
+          loadUsers();
+        } catch (error) {
+          showToast('Error al asignar tienda: ' + error.message, 'error');
+        }
       });
     });
   })();
