@@ -2728,61 +2728,80 @@
     
     // Función para exportar la tienda actual
     function exportToExcel() {
-      const today = new Date().toISOString().split('T')[0];
-      const startDate = new Date(today);
-      const endDate = new Date(today);
-      endDate.setDate(endDate.getDate() + 1); // Incluye todo el día
+  const today = new Date().toISOString().split('T')[0];
+  const salesToday = salesData[currentStore]?.sales.filter(sale => {
+    const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
+    return saleDate === today;
+  }) || [];
 
-      // Obtener ventas de la tienda actual para hoy
-      const salesToday = [];
-      if (salesData[currentStore]) {
-        salesData[currentStore].sales.forEach(sale => {
-          const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
-          if (saleDate === today) {
-            salesToday.push(sale);
-          }
-        });
+  if (salesToday.length === 0) {
+    showToast('No hay ventas para exportar hoy', 'warning');
+    return;
+  }
+
+  // Definir columnas requeridas
+  const columns = [
+    'Fecha', 
+    'Hora', 
+    'Ubicación', 
+    'Método de Pago',
+    // Categorías Normales
+    'Artículos Normales',
+    'Bisutería Normales',
+    'Zapato Normales',
+    'Prenda Normales',
+    'B.Eco Normales',
+    // Categorías Premium
+    'Artículos (P)',
+    'Bisutería (P)',
+    'Zapato (P)',
+    'Prenda (P)',
+    // Categorías VIP
+    'Artículos (V)',
+    'Bisutería (V)',
+    'Zapato (V)',
+    'Prenda (V)'
+  ];
+
+  // Crear matriz de datos
+  const data = [columns];
+
+  salesToday.forEach(sale => {
+    const date = new Date(sale.timestamp);
+    const fecha = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    const hora = sale.manualTime || `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Inicializar fila con valores predeterminados
+    const row = new Array(columns.length).fill(0);
+    
+    // Asignar valores fijos
+    row[0] = fecha;         // Fecha
+    row[1] = hora;          // Hora
+    row[2] = sale.store;    // Ubicación
+    row[3] = sale.payment;  // Método de Pago
+
+    // Procesar items de la venta
+    sale.items.forEach(item => {
+      const colIndex = columns.indexOf(item.category);
+      if (colIndex !== -1) {
+        row[colIndex] = (row[colIndex] || 0) + item.quantity;
       }
+    });
 
-      if (salesToday.length === 0) {
-        showToast('No hay ventas para exportar hoy', 'warning');
-        return;
-      }
+    data.push(row);
+  });
 
-      // Crear un libro de trabajo
-      const wb = XLSX.utils.book_new();
+  // Crear libro de trabajo
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  
+  // Ajustar anchos de columna
+  const colWidths = columns.map(() => ({ wch: 20 }));
+  ws['!cols'] = colWidths;
 
-      // Crear hoja de datos
-      const data = [
-        ['Fecha', 'Hora', 'Categoría', 'Cantidad', 'Método de Pago', 'Tipo']
-      ];
-
-      salesToday.forEach(sale => {
-        const date = new Date(sale.timestamp);
-        const saleDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
-        let saleTime = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-        if (sale.manualTime) {
-          saleTime = sale.manualTime;
-        }
-
-        sale.items.forEach(item => {
-          data.push([
-            saleDate,
-            saleTime,
-            item.category,
-            item.quantity,
-            sale.payment,
-            sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')
-          ]);
-        });
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, `Ventas_${currentStore}`);
-
-      // Exportar
-      XLSX.writeFile(wb, `Ventas_${currentStore}_${today}.xlsx`);
-    }
+  XLSX.utils.book_append_sheet(wb, ws, `Ventas_${currentStore}`);
+  XLSX.writeFile(wb, `Ventas_${currentStore}_${today}.xlsx`);
+}
     
     async function exportAllStores() {
       const startDate = new Date(adminStartDate.value);
