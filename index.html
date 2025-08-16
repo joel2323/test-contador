@@ -2571,36 +2571,51 @@
           return;
         }
         
-        // Mostrar ventas agrupadas por tienda
+        // Agrupar por tienda
         const salesByStore = {};
         firebaseSales.forEach(sale => {
           if (!salesByStore[sale.store]) {
-            salesByStore[sale.store] = [];
+            salesByStore[sale.store] = {
+              sales: [],
+              totalVentas: 0,
+              totalArticulos: 0
+            };
           }
-          salesByStore[sale.store].push(sale);
+          salesByStore[sale.store].sales.push(sale);
+          salesByStore[sale.store].totalVentas++;
+          sale.items.forEach(item => {
+            salesByStore[sale.store].totalArticulos += item.quantity;
+          });
         });
         
         // Mostrar todas las tiendas si se seleccionó "todas"
         if (store === 'all') {
-          for (const [storeName, storeSales] of Object.entries(salesByStore)) {
-            // Encabezado de tienda
-            const storeHeader = document.createElement('div');
-            storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
-            storeHeader.textContent = `Tienda: ${storeName}`;
-            adminSalesList.appendChild(storeHeader);
+          for (const [storeName, storeData] of Object.entries(salesByStore)) {
+            // Resumen de la tienda
+            const summaryElement = document.createElement('div');
+            summaryElement.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+            summaryElement.innerHTML = `
+              Tienda: ${storeName} 
+              <span class="ml-2 text-green-600">${storeData.totalVentas} ventas, ${storeData.totalArticulos} artículos</span>
+            `;
+            adminSalesList.appendChild(summaryElement);
             
-            storeSales.forEach(sale => createAdminSaleElement(sale));
+            storeData.sales.forEach(sale => createAdminSaleElement(sale));
           }
         } else {
           // Mostrar solo la tienda seleccionada
-          if (salesByStore[store] && salesByStore[store].length > 0) {
-            // Encabezado de tienda
-            const storeHeader = document.createElement('div');
-            storeHeader.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
-            storeHeader.textContent = `Tienda: ${store}`;
-            adminSalesList.appendChild(storeHeader);
+          if (salesByStore[store] && salesByStore[store].sales.length > 0) {
+            const storeData = salesByStore[store];
+            // Resumen de la tienda
+            const summaryElement = document.createElement('div');
+            summaryElement.className = 'font-bold text-lg mt-4 mb-2 text-blue-600';
+            summaryElement.innerHTML = `
+              Tienda: ${store} 
+              <span class="ml-2 text-green-600">${storeData.totalVentas} ventas, ${storeData.totalArticulos} artículos</span>
+            `;
+            adminSalesList.appendChild(summaryElement);
             
-            salesByStore[store].forEach(sale => createAdminSaleElement(sale));
+            storeData.sales.forEach(sale => createAdminSaleElement(sale));
           }
         }
       } catch (error) {
@@ -2711,35 +2726,199 @@
       });
     }
     
-    // Función para generar el libro de Excel para una tienda
-    function generateWorkbookForStore(storeName, sales) {
-      // ... (código existente) ...
-    }
-    
-    // Función para exportar una tienda individual
-    async function exportStoreToExcel(storeName) {
-      // ... (código existente) ...
-    }
-    
-    // Función para exportar todas las tiendas
-    async function exportAllStores() {
-      // ... (código existente) ...
-    }
-    
-    // Nueva función para exportar todas las ventas en un solo archivo
-    async function exportAllInOneExcel() {
-      // ... (código existente) ...
-    }
-
-    function generateWorkbookForAllStores(sales) {
-      // ... (código existente) ...
-    }
-    
     // Función para exportar la tienda actual
     function exportToExcel() {
-      // ... (código existente) ...
+      const today = new Date().toISOString().split('T')[0];
+      const startDate = new Date(today);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 1); // Incluye todo el día
+
+      // Obtener ventas de la tienda actual para hoy
+      const salesToday = [];
+      if (salesData[currentStore]) {
+        salesData[currentStore].sales.forEach(sale => {
+          const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
+          if (saleDate === today) {
+            salesToday.push(sale);
+          }
+        });
+      }
+
+      if (salesToday.length === 0) {
+        showToast('No hay ventas para exportar hoy', 'warning');
+        return;
+      }
+
+      // Crear un libro de trabajo
+      const wb = XLSX.utils.book_new();
+
+      // Crear hoja de datos
+      const data = [
+        ['Fecha', 'Hora', 'Categoría', 'Cantidad', 'Método de Pago', 'Tipo']
+      ];
+
+      salesToday.forEach(sale => {
+        const date = new Date(sale.timestamp);
+        const saleDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
+        let saleTime = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        if (sale.manualTime) {
+          saleTime = sale.manualTime;
+        }
+
+        sale.items.forEach(item => {
+          data.push([
+            saleDate,
+            saleTime,
+            item.category,
+            item.quantity,
+            sale.payment,
+            sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')
+          ]);
+        });
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, `Ventas_${currentStore}`);
+
+      // Exportar
+      XLSX.writeFile(wb, `Ventas_${currentStore}_${today}.xlsx`);
     }
     
+    async function exportAllStores() {
+      const startDate = new Date(adminStartDate.value);
+      const endDate = new Date(adminEndDate.value);
+      endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
+
+      // Obtener todas las ventas de Firebase en el rango
+      try {
+        exportStatus.classList.remove('hidden');
+        exportMessage.textContent = 'Exportando...';
+
+        const firebaseSales = await getSalesFromFirebase('all', startDate, endDate);
+
+        if (firebaseSales.length === 0) {
+          showToast('No hay ventas para exportar', 'warning');
+          exportStatus.classList.add('hidden');
+          return;
+        }
+
+        // Agrupar por tienda
+        const salesByStore = {};
+        firebaseSales.forEach(sale => {
+          if (!salesByStore[sale.store]) {
+            salesByStore[sale.store] = [];
+          }
+          salesByStore[sale.store].push(sale);
+        });
+
+        // Crear un archivo ZIP
+        const zip = new JSZip();
+
+        for (const [store, sales] of Object.entries(salesByStore)) {
+          const wb = XLSX.utils.book_new();
+          const data = [
+            ['Fecha', 'Hora', 'Categoría', 'Cantidad', 'Método de Pago', 'Tipo', 'Usuario']
+          ];
+
+          sales.forEach(sale => {
+            const date = new Date(sale.timestamp);
+            const saleDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
+            let saleTime = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+            if (sale.manualTime) {
+              saleTime = sale.manualTime;
+            }
+
+            sale.items.forEach(item => {
+              data.push([
+                saleDate,
+                saleTime,
+                item.category,
+                item.quantity,
+                sale.payment,
+                sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)'),
+                users[sale.user]?.displayName || sale.user
+              ]);
+            });
+          });
+
+          const ws = XLSX.utils.aoa_to_sheet(data);
+          XLSX.utils.book_append_sheet(wb, ws, `Ventas_${store}`);
+          const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+          zip.file(`Ventas_${store}.xlsx`, excelBuffer);
+        }
+
+        // Generar el archivo ZIP
+        zip.generateAsync({ type: 'blob' }).then((content) => {
+          saveAs(content, `Ventas_Todas_Tiendas_${adminStartDate.value}_a_${adminEndDate.value}.zip`);
+          exportStatus.classList.add('hidden');
+          showToast('Exportación completada', 'success');
+        });
+      } catch (error) {
+        console.error("Error exportando:", error);
+        exportStatus.classList.add('hidden');
+        showToast('Error al exportar: ' + error.message, 'error');
+      }
+    }
+    
+    async function exportAllInOneExcel() {
+      const startDate = new Date(adminStartDate.value);
+      const endDate = new Date(adminEndDate.value);
+      endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
+
+      try {
+        exportStatus.classList.remove('hidden');
+        exportMessage.textContent = 'Exportando...';
+
+        const firebaseSales = await getSalesFromFirebase('all', startDate, endDate);
+
+        if (firebaseSales.length === 0) {
+          showToast('No hay ventas para exportar', 'warning');
+          exportStatus.classList.add('hidden');
+          return;
+        }
+
+        // Crear un libro de trabajo
+        const wb = XLSX.utils.book_new();
+
+        // Crear una hoja con todas las ventas
+        const data = [
+          ['Tienda', 'Fecha', 'Hora', 'Categoría', 'Cantidad', 'Método de Pago', 'Tipo', 'Usuario']
+        ];
+
+        firebaseSales.forEach(sale => {
+          const date = new Date(sale.timestamp);
+          const saleDate = `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`;
+          let saleTime = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+          if (sale.manualTime) {
+            saleTime = sale.manualTime;
+          }
+
+          sale.items.forEach(item => {
+            data.push([
+              sale.store,
+              saleDate,
+              saleTime,
+              item.category,
+              item.quantity,
+              sale.payment,
+              sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)'),
+              users[sale.user]?.displayName || sale.user
+            ]);
+          });
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Todas las ventas');
+        XLSX.writeFile(wb, `Todas_Ventas_${adminStartDate.value}_a_${adminEndDate.value}.xlsx`);
+        exportStatus.classList.add('hidden');
+        showToast('Exportación completada', 'success');
+      } catch (error) {
+        console.error("Error exportando:", error);
+        exportStatus.classList.add('hidden');
+        showToast('Error al exportar: ' + error.message, 'error');
+      }
+    }
+
     // ============== GESTIÓN DE USUARIOS ==============
     
     // Cargar todos los usuarios
