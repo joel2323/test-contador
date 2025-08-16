@@ -684,6 +684,12 @@
     .admin-section.active {
       display: block;
     }
+	 .flex-wrap-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+ 
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -2323,11 +2329,11 @@
       }
     }
     
-    async function loadSales() {
+       async function loadSales() {
       const startDate = new Date(startDateInput.value);
       const endDate = new Date(endDateInput.value);
       endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
-      
+
       const store = isMasterUser ? storeFilter.value : currentStore;
       
       salesList.innerHTML = '';
@@ -2745,12 +2751,12 @@
     'Hora', 
     'Ubicación', 
     'Método de Pago',
-    // Categorías Normales
-    'Artículos Normales',
-    'Bisutería Normales',
-    'Zapato Normales',
-    'Prenda Normales',
-    'B.Eco Normales',
+    // Categorías Liquidacion
+    'Artículos ',
+    'Bisutería ',
+    'Zapato ',
+    'Prenda ',
+    'B.Eco ',
     // Categorías Premium
     'Artículos (P)',
     'Bisutería (P)',
@@ -3372,7 +3378,7 @@
       // Ver ventas
       viewSalesBtn.addEventListener('click', () => {
         salesModal.classList.add('show');
-        loadSales();
+        loadSales(); 
       });
 
       // Cerrar modal de ventas
