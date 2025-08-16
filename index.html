@@ -684,12 +684,13 @@
     .admin-section.active {
       display: block;
     }
-	 .flex-wrap-container {
+    
+    /* Nuevo estilo para contenedor de botones */
+    .flex-wrap-container {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
     }
- 
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -1398,11 +1399,11 @@
               </button>
             </div>
           </div>
-          <div class="flex justify-end mb-4 gap-2">
+          <!-- Contenedor mejorado para botones de exportación -->
+          <div class="flex-wrap-container justify-end mb-4 gap-2">
             <button id="admin-export-all" class="export-btn">
               <i class="fas fa-file-archive mr-2"></i> Exportar por tienda
             </button>
-            <!-- Nuevo botón para exportar todo en un archivo -->
             <button id="admin-export-all-in-one" class="export-btn bg-purple-600">
               <i class="fas fa-file-excel mr-2"></i> Exportar todo en un archivo
             </button>
@@ -2329,7 +2330,8 @@
       }
     }
     
-       async function loadSales() {
+    // Función modificada para cargar ventas
+    async function loadSales() {
       const startDate = new Date(startDateInput.value);
       const endDate = new Date(endDateInput.value);
       endDate.setDate(endDate.getDate() + 1); // Incluir todo el día final
@@ -2337,6 +2339,9 @@
       const store = isMasterUser ? storeFilter.value : currentStore;
       
       salesList.innerHTML = '';
+      
+      // Mostrar u ocultar el filtro de tienda según el tipo de usuario
+      storeFilterContainer.classList.toggle('hidden', !isMasterUser);
       
       // Si es admin, intentar cargar de Firebase primero
       if (isMasterUser) {
@@ -2396,7 +2401,6 @@
               <div>
                 <div class="font-semibold">${formattedDate}</div>
                 <div class="text-sm text-gray-600">Usuario: ${users[sale.user]?.displayName || sale.user}</div>
-                <div class="text-sm text-gray-600">Tipo: ${sale.type === 'normal' ? 'Normal' : (sale.type === 'p' ? '(P)' : '(V)')}</div>
               </div>
               <div class="flex gap-2">
                 <button class="edit-sale-btn bg-yellow-500 text-white px-3 py-1 rounded-lg" data-id="${sale.id}">
@@ -3375,10 +3379,10 @@
       // Limpiar todo
       clearAllBtn.addEventListener('click', clearAllItems);
       
-      // Ver ventas
+      // Ver ventas (CORRECCIÓN: agregar llamada a loadSales)
       viewSalesBtn.addEventListener('click', () => {
         salesModal.classList.add('show');
-        loadSales(); 
+        loadSales();
       });
 
       // Cerrar modal de ventas
